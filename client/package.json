@@ -1,5 +1,5 @@
 {
-  "name": "any-player-chess",
+  "name": "2d-tabletop-client",
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
