@@ -9,13 +9,18 @@ const { Server } = require("socket.io");
 const io = new Server(server);
 
 app.get('/', (req, res) => {
-  res.send("api is online");
+	res.send("api is online");
 });
 
 server.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+	console.log(`Example app listening on port ${port}`)
 });
 
 io.on('connection', (socket) => {
-  console.log('a user connected');
+	console.log('a user connected');
+
+	socket.on("ping", () => {
+		console.log("ping");
+		socket.emit("pong");
+	});
 });

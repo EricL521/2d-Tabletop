@@ -1,47 +1,50 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+import StartScreen from './components/StartScreen.vue';
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-    </div>
-  </header>
-
-  <main>
-    <TheWelcome />
-  </main>
+	<header>
+		<div id="title">
+			<h1 id="name">2D Tabletop Simulator</h1>
+			<sub>Not at all based on Tabletop Simulator, also this name is very subject to change</sub>
+		</div>
+	</header>
+	<main>
+		<StartScreen />
+	</main>
 </template>
 
 <style scoped>
 header {
-  line-height: 1.5;
+	width: 100%;
+	height: 15%;
+	padding: 1%;
+	margin-bottom: 2%;
+	-moz-box-sizing: border-box; 
+	-webkit-box-sizing: border-box; 
+	box-sizing: border-box;
+	border-bottom: 2px solid #7280AC;
+	box-shadow: 0 5px 10px #7280AC;
+	background-color: #F1E4ED;
+	border-radius: 0 0 2em 2em;
+
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: left;
+}
+#title {
+	width: min-content;
+}
+#name {
+	padding: 0;
+	margin: 0;
+	display: inline-block;
+	white-space: nowrap;
 }
 
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+main {
+	height: 85%;
+	width: 100%;
 }
 </style>
