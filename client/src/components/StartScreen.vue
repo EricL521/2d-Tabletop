@@ -8,7 +8,9 @@
 	const gamePassword = ref("");
 	const isPublic = ref(false);	
 	const createGame = () => {
-
+		socket.emit('createGame', gameName, gamePassword, { // settings
+			isPublic
+		});
 	};
 
 	const gameId = ref("");
@@ -32,7 +34,7 @@
 					<input placeholder="Game Name" v-model="gameName">
 					<input placeholder="Game Password (optional)" v-model="gamePassword">
 				</div>
-				<ToggleSwitch offBackgroundColor="#99FFCE" onBackgroundColor="#C54A44" offLabel="Private" onLabel="Public"
+				<ToggleSwitch offBackgroundColor="#99FFCE" onBackgroundColor="#CF6863" offLabel="Private" onLabel="Public"
 				@switch="(val) => {isPublic = val;}"/>
 				<button @click="createGame">Create!</button>
 			</div>
@@ -65,12 +67,16 @@
 	button:hover {
 		background-color: #AFDDA6;
 		transform: translate(-0.05rem, -0.1rem);
-		box-shadow: 0.15rem 0.3rem #7280AC;
+		box-shadow: 0.15rem 0.3rem #7280AC, 0.05rem 0.1rem #7280AC;
 	}
 	button:active {
 		background-color: #A2D897;
 		transform: translate(0.1rem, 0.2rem);
 		box-shadow: 0 0 #7280AC;
+	}
+
+	#name {
+		font-size: 200%;
 	}
 
 	#create-board, #left-div, #parent-div, #join-board {

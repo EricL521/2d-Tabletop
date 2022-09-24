@@ -91,6 +91,9 @@ p {
 	left: 2.5%;
 	top: 5%;
 }
+.slider:hover:before {
+	box-shadow: 0 0 0.3em #7280AC, 0 0 0.3em #7280AC, 0 0 0.3em #7280AC;
+}
 input:checked + .slider:before {
 	left: 97.5%;
 	transform: translate(-100%, 0);
