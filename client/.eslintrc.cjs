@@ -9,6 +9,7 @@ module.exports = {
     ecmaVersion: 'latest'
   },
   globals: {
-	socket: "readonly"
+	socket: "readonly",
+	Peer: "readonly"
   }
 }

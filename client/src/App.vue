@@ -1,5 +1,16 @@
 <script setup>
-import StartScreen from './components/StartScreen.vue';
+import { computed, ref } from 'vue';
+import HomeScreen from './components/HomeScreen.vue';
+import CreateScreen from './components/CreateScreen.vue';
+import JoinScreen from './components/JoinScreen.vue';
+import GameScreen from './components/GameScreen.vue';
+
+const screens = {HomeScreen, CreateScreen, JoinScreen, GameScreen};
+const screen = ref("HomeScreen");
+const currentScreen = computed(() => screens[screen.value]);
+
+// used to transfer data between components
+const data = ref({});
 </script>
 
 <template>
@@ -10,7 +21,8 @@ import StartScreen from './components/StartScreen.vue';
 		</div>
 	</header>
 	<main>
-		<StartScreen />
+		<component :is="currentScreen" @changeScreen="(newScreen) => screen = newScreen"
+			@updateData="(newData) => data = newData" :data="data"/>
 	</main>
 </template>
 

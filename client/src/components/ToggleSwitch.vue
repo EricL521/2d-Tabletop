@@ -39,7 +39,7 @@ p {
 .switch-label {
 	grid-column: 1 / span 1;
 	grid-row: 1 / span 1;
-	transition: 0.4s;
+	transition: 0.3s;
 	user-select: none;
 }
 .invisible {
@@ -70,7 +70,7 @@ p {
 	-moz-box-sizing: border-box; 
 	-webkit-box-sizing: border-box;
 	box-sizing: border-box;
-	transition: 0.4s;
+	transition: 0.3s;
 }
 .switch input {
 	display: none;
@@ -85,13 +85,13 @@ p {
 	box-sizing: border-box;
 	border-radius: 100vh;
 	background-color: white;
-	transition: 0.4s;
+	transition: 0.3s;
 
 	position: absolute;
 	left: 2.5%;
 	top: 5%;
 }
-.slider:hover:before {
+#parent:hover .slider:before {
 	box-shadow: 0 0 0.3em #7280AC, 0 0 0.3em #7280AC, 0 0 0.3em #7280AC;
 }
 input:checked + .slider:before {

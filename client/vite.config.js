@@ -13,11 +13,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '') // some regex thing that removes the /api from the path
-      }
-    }
+		'/api': {
+			target: 'http://localhost:3000',
+			changeOrigin: true,
+			rewrite: (path) => path.replace(/^\/api/, '') // some regex thing that removes the /api from the path
+		},
+		'/peerjs': 'http://localhost:9000',
+    },
   }
 })
