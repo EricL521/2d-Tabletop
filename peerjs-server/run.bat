@@ -1,1 +1,1 @@
-peerjs --port 9000 --key peerjs --path /myapp
+peerjs --port 9000 --key peerjs --path /peerjs
