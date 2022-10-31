@@ -1,6 +1,8 @@
 <script setup>
 	import { inject } from 'vue';
-	import { BoardHost } from '../assets/classes/boardHost.js';
+	import { BoardHost } from '../../assets/classes/boardHost.js';
+	import LoadingText from '../LoadingText.vue'
+	
 	const peer = inject('peer');
 	const props = defineProps(['data']);
 	const emit = defineEmits(['changeScreen', 'updateData']);
@@ -20,8 +22,6 @@
 
 <template>
 	<div class="up-down-flex">
-		<h1>
-			Loading...
-		</h1>
+		<LoadingText>creating</LoadingText>
 	</div>
 </template>

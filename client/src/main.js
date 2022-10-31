@@ -10,6 +10,9 @@ const peer = new Peer(null, {
 	path: '/peerjs',
 	port: 9000
 });
+peer.on('error', (err) => {
+	console.error(err);
+});
 
 const app = createApp(App);
 app.provide('peer', peer);

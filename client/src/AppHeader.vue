@@ -1,11 +1,17 @@
 <script setup>
-const props = defineProps(['min']);
+import { computed } from 'vue';
+
+const props = defineProps(['min', 'title']);
+const titleText = computed(() => {
+	return props.title? props.title: // fallback text:
+	'2D Tabletop Simulator'
+});
 </script>
 
 <template>
-	<header :style="{width: headerWidth}" :class="{'min-header': props.min}">
+	<header :class="{'min-header': props.min}">
 		<div id="title">
-			<h1 id="name" :class="{'min-name': props.min}">2D Tabletop Simulator</h1>
+			<h1 id="name" :class="{'min-name': props.min}">{{ titleText }}</h1>
 			<sub v-if="!props.min">Not at all based on Tabletop Simulator, also this name is very subject to change</sub>
 		</div>
 		<div id="filler" :class="{'min-filler': props.min}"></div>
@@ -14,8 +20,7 @@ const props = defineProps(['min']);
 
 <style scoped>
 * {
-	transition-property: width, height, font-size, padding, border-radius, box-shadow;
-	transition-duration: 0.5s;
+	transition: all 0.5s ease, max-width 0s;
 }
 
 header {
@@ -35,12 +40,13 @@ header {
 	background-color: #F1E4ED;
 	border-radius: 0 0 2em 2em;
 
-	z-index: 100;
+	z-index: 1000000;
 	overflow: hidden;
 }
 #filler {
 	width: 100vw;
 	flex-shrink: 1;
+	box-sizing: border-box;
 }
 #title {
 	width: min-content;
@@ -50,14 +56,16 @@ header {
 	margin: 0;
 	display: block;
 	white-space: nowrap;
-	font-weight: 600;
+}
+sub {
+	bottom: 0;
 }
 
-.min-name {
+#name.min-name {
 	font-size: 1.5em;
 	font-weight: 400;
 }
-.min-header {
+header.min-header {
 	position: fixed;
 	top: 0;
 	left: 0;

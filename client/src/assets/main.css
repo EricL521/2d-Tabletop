@@ -6,12 +6,21 @@
 	margin: 0 auto;
 	padding: 0;
 	
-	position: fixed;
+	position: absolute;
 	left: 0;
 	top: 0;
 
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	overflow: hidden;
+
 	font-weight: normal;
 	background-color: #F7F0F5;
+}
+
+.notransition {
+	transition: none !important;
 }
 
 .up-down-flex {

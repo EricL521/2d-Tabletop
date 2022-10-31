@@ -1,6 +1,6 @@
 <script setup>
 	import { ref } from 'vue';
-	import ToggleSwitch from './ToggleSwitch.vue';
+	import ToggleSwitch from '../ToggleSwitch.vue';
 	
 	const emit = defineEmits(['changeScreen', 'updateData']);
 
@@ -56,7 +56,7 @@
 </script>
 
 <template>
-	<div class="up-down-flex">
+	<div class="up-down-flex" id="home-screen">
 		<input id="name" placeholder="Your Username" v-model="playerName" ref="playerNameInput">
 		<div class="left-right-flex" id="parent-div">
 			<div class="up-down-flex" id="join-board">
@@ -83,73 +83,76 @@
 </template>
 
 <style scoped>
-	input, button {
-		width: 80%;
-		font-size: 150%;
-		font-weight: 100;
-		border-radius: 100vw;
-		text-align: center;
-		transition: 0.1s;
-	}
-	input {
-		margin: 0.1em;
-	}
-	input:before {
-		content: "!";
-		display: block;
-		position: absolute;
-		left: 0px;
-		/* opacity: 0; */
-		transition: 0.1s;
-	}
-	input:required {
-		border: 2px solid #C3423F;
-		background-color: #E7B4B1;
-	}
-	input:required:before {
-		opacity: 1;
-	}
+input, button {
+	width: 80%;
+	font-size: 150%;
+	font-weight: 100;
+	border-radius: 100vw;
+	text-align: center;
+	transition: 0.1s;
+}
+input {
+	margin: 0.1em;
+}
+input:before {
+	content: "!";
+	display: block;
+	position: absolute;
+	left: 0px;
+	/* opacity: 0; */
+	transition: 0.1s;
+}
+input:required {
+	border: 2px solid #C3423F;
+	background-color: #E7B4B1;
+}
+input:required:before {
+	opacity: 1;
+}
 
-	button {
-		width: 50%;
-		box-shadow: 0.1rem 0.2rem #7280AC, 0.05rem 0.1rem #7280AC;
-		background-color: #BCE3B5;
-		transition-duration: 0.1s;
-		cursor: pointer;
-	}
-	button:hover {
-		background-color: #AFDDA6;
-		transform: translate(-0.05rem, -0.1rem);
-		box-shadow: 0.15rem 0.3rem #7280AC, 0.1rem 0.2rem #7280AC, 0.05rem 0.1rem #7280AC;
-	}
-	button:active {
-		background-color: #A2D897;
-		transform: translate(0.1rem, 0.2rem);
-		box-shadow: 0 0 #7280AC;
-	}
+button {
+	width: 50%;
+	box-shadow: 0.1rem 0.2rem #7280AC, 0.05rem 0.1rem #7280AC;
+	background-color: #BCE3B5;
+	transition-duration: 0.1s;
+	cursor: pointer;
+}
+button:hover {
+	background-color: #AFDDA6;
+	transform: translate(-0.05rem, -0.1rem);
+	box-shadow: 0.15rem 0.3rem #7280AC, 0.1rem 0.2rem #7280AC, 0.05rem 0.1rem #7280AC;
+}
+button:active {
+	background-color: #A2D897;
+	transform: translate(0.1rem, 0.2rem);
+	box-shadow: 0 0 #7280AC;
+}
 
-	#name {
-		font-size: 200%;
-	}
+#name {
+	font-size: 200%;
+}
 
-	#create-board, #left-div, #parent-div, #join-board {
-		height: 100%;
-		width: 100%;
-	}
-	#create-board {
-		flex-shrink: 2;
-	}
-	#create-board-title {
-		width: min-content;
-	}
-	#title-text {
-		padding: 0;
-		margin: 0;
-		display: inline-block;
-		white-space: nowrap;
-	}
-	#game-credentials {
-		height: min-content; 
-		width: 100%;
-	}
+#create-board, #left-div, #parent-div, #join-board {
+	height: 100%;
+	width: 100%;
+}
+#parent-div {
+	height: 75%;
+}
+#create-board {
+	flex-shrink: 2;
+}
+#create-board-title {
+	width: min-content;
+}
+#title-text {
+	padding: 0;
+	margin: 0;
+	display: inline-block;
+	white-space: nowrap;
+}
+#game-credentials {
+	height: min-content; 
+	width: 100%;
+}
 </style>

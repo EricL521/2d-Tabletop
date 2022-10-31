@@ -2,12 +2,13 @@
 import { computed, ref } from 'vue';
 import AppHeader from './AppHeader.vue';
 
-import HomeScreen from './components/HomeScreen.vue';
-import CreateScreen from './components/CreateScreen.vue';
-import JoinScreen from './components/JoinScreen.vue';
-import GameScreen from './components/GameScreen.vue';
+import HomeScreen from './components/Screens/HomeScreen.vue';
+import CreateScreen from './components/Screens/CreateScreen.vue';
+import JoinScreen from './components/Screens/JoinScreen.vue';
+import GameScreen from './components/Screens/GameScreen.vue';
 
 const minHeader = ref(false);
+const titleContent = ref(null);
 
 const screens = {HomeScreen, CreateScreen, JoinScreen, GameScreen};
 const screen = ref("HomeScreen");
@@ -18,17 +19,16 @@ const data = ref({});
 </script>
 
 <template>
-	<AppHeader :min="minHeader"></AppHeader>
+	<AppHeader :min="minHeader" :title="titleContent"></AppHeader>
 	<main>
 		<component :is="currentScreen" @changeScreen="(newScreen) => screen = newScreen"
 			@updateData="(newData) => data = newData" :data="data"
-			@minHeader="(min) => minHeader = min"/>
+			@updateHeader="(min, title) => {minHeader = min; titleContent = title;}"/>
 	</main>
 </template>
 
 <style scoped>
 main {
-	margin-top: 2em;
 	width: 100%;
 	position: relative;
 	flex-grow: 1;

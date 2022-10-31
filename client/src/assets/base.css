@@ -1,6 +1,27 @@
 @font-face {
 	font-family: Comfortaa;
-	src: url(Comfortaa.ttf);
+	src: url(Comfortaa/static/Comfortaa-Light.ttf);
+	font-weight: 300;
+}
+@font-face {
+	font-family: Comfortaa;
+	src: url(Comfortaa/static/Comfortaa-Regular.ttf);
+	font-weight: 400;
+}
+@font-face {
+	font-family: Comfortaa;
+	src: url(Comfortaa/static/Comfortaa-Medium.ttf);
+	font-weight: 500;
+}
+@font-face {
+	font-family: Comfortaa;
+	src: url(Comfortaa/static/Comfortaa-SemiBold.ttf);
+	font-weight: 600;
+}
+@font-face {
+	font-family: Comfortaa;
+	src: url(Comfortaa/static/Comfortaa-Bold.ttf);
+	font-weight: 700;
 }
 
 body {
@@ -11,4 +32,14 @@ body {
 	text-rendering: optimizeLegibility;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+	font-weight: 600;
+}
+sub {
+	font-weight: 300;
+}
+input {
+	font-family: inherit;
 }
