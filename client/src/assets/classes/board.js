@@ -1,3 +1,4 @@
+import { BoardItemJSON } from "./boardItemJSON";
 // base board class
 
 // these can be overrided in client and host
@@ -18,9 +19,9 @@ export class Board {
 		if (this.constructor.connectionEvents == null)
 			throw new Error(`${this.constructor.name}.connectionEvents must be defined`);
 		
-		this.selectedItemKey = null; 
-		this.selectedItemZ = null;
-		this.boardItems = new Map();
+		this.selectedItemKey = null;
+		this.boardItems = new Map(); // structured order
+		this.allItems = new Map(); // unstructured, with all children just in the map
 		this.nextKey = 0; // overriden in boardClient
 		
 		this.name = name; // can be null
@@ -30,6 +31,7 @@ export class Board {
 		this.playerName = playerName;
 		this.playerNames = new Set([playerName]);
 
+		this.onAnyFuncs = [];
 		this.listeners = new Map();
 		// name: [callback, callback, ...]
 	}
@@ -80,46 +82,70 @@ export class Board {
 	onceConnection() { }
 	onceConnectionClose() { }
 
+	getItem(key) {
+		return this.allItems.get(key);
+	}
 	selectItem(key) {
 		if (key == this.selectedItemKey)
 			return;
-		const newItem = this.boardItems.get(key);
-		const oldItem = this.boardItems.get(this.selectedItemKey);
-		if (oldItem) {
-			oldItem.selected = false;
-			oldItem.z = this.selectedItemZ;
-		}
-		if (newItem) {
-			newItem.selected = true;
-			this.selectedItemZ = newItem.z;
-			newItem.z = 10000;
-		}
+		const newItem = this.getItem(key);
+		const oldItem = this.getItem(this.selectedItemKey);
+		if (oldItem)
+			oldItem.deselect();
+		if (newItem)
+			newItem.select();
 		this.selectedItemKey = key;
-		this.emit("update");
+		this.emit("itemSelect", key, newItem);
 	}
 	// should override next group of functions
-	addItem(item) {
+	addItem(itemData) {
 		const key = this.nextKey ++;
-		if (!item.playerName)
-			item.playerName = this.playerName;
-		item.key = key;
-		item.selected = false;
+		const item = new BoardItemJSON(key, itemData.playerName? itemData.playerName: this.playerName, 
+									itemData.x, itemData.y, itemData.z, itemData.width, itemData.height, 
+									itemData.type, itemData.data, itemData.parent, itemData.children);
 		this.boardItems.set(key, item);
-		this.emit("update", "add", key);
+		this.allItems.set(key, item);
+		this.emit("itemCreate", key);
 	}
 	moveItem(key, x, y) {
-		const item = this.boardItems.get(key);
-		item.x = x;
-		item.y = y;
-		this.emit("update", "move", key);
+		const item = this.getItem(key);
+		item.moveTo(x, y);
+		this.emit("itemMove", key);
 	}
 	resizeItem(key, width, height) {
-		const item = this.boardItems.get(key);
-		item.width = width;
-		item.height = height;
-		this.emit("update", "resize", key);
+		const item = this.getItem(key);
+		item.resizeTo(width, height);
+		this.emit("itemResize", key);
 	}
-	
+	// sets the parent item of childkey to parentkey
+	parentItem(childKey, parentKey) {
+		const parent = this.getItem(parentKey);
+		const child = this.getItem(childKey);
+
+		if (child && child.parent && child.parent.key == parentKey)
+			return;
+		if (parent && parent.parent && parent.parent.key == childKey)
+			return; // can't reverse parenting direction
+		if (!this.boardItems.has(childKey))
+			this.unparentItem(childKey); // reset childkey
+		if (!parent)
+			return; // no parent
+		
+
+		this.boardItems.delete(childKey);
+		parent.addChild(child);
+
+		this.emit("itemParent", childKey, parentKey);
+	}
+	unparentItem(childKey) {
+		const child = this.getItem(childKey);
+		const parent = child.parent;
+
+		parent.removeChild(child);
+		this.boardItems.set(childKey, child);
+
+		this.emit("itemUnparent", childKey);
+	}
 
 	// add an event listener
 	on (eventName, callback) {
@@ -127,10 +153,15 @@ export class Board {
 			this.listeners.set(eventName, []);
 		this.listeners.get(eventName).push(callback);
 	}
+	onAny (callback) {
+		this.onAnyFuncs.push(callback);
+	}
 	// call the event listeners
 	emit (eventName, ...data) {
-		if (this.listeners.has(eventName))
+		this.onAnyFuncs.forEach(func => func(eventName, ...data));
+		if (this.listeners.has(eventName)) {
 			this.listeners.get(eventName).forEach(func => func(...data));
+		}
 	}
 
 	addPlayer(name) {

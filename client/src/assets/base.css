@@ -24,11 +24,21 @@
 	font-weight: 700;
 }
 
+:root {
+	--color-dark: #25171A;
+	--color-light: #F1E4ED;
+	--color-red: #CE6964;
+	--color-green: #AFDDA6;
+	--color-blue: #727DAC;
+}
+* {
+	font-family: inherit;
+}
 body {
 	margin: 0 auto;
 	min-height: 100vh;
 	font-family: Comfortaa, sans-serif, Arial;
-	color: #25171A;
+	color: var(--color-dark);
 	text-rendering: optimizeLegibility;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
@@ -39,7 +49,4 @@ h1 {
 }
 sub {
 	font-weight: 300;
-}
-input {
-	font-family: inherit;
 }

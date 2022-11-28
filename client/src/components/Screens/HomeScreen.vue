@@ -93,25 +93,17 @@ input, button {
 }
 input {
 	margin: 0.1em;
-}
-input:before {
-	content: "!";
-	display: block;
-	position: absolute;
-	left: 0px;
-	/* opacity: 0; */
-	transition: 0.1s;
+	border: 2px solid #25171A;
+	outline: none;
 }
 input:required {
 	border: 2px solid #C3423F;
 	background-color: #E7B4B1;
 }
-input:required:before {
-	opacity: 1;
-}
 
 button {
 	width: 50%;
+	border: 2px solid #25171A;
 	box-shadow: 0.1rem 0.2rem #7280AC, 0.05rem 0.1rem #7280AC;
 	background-color: #BCE3B5;
 	transition-duration: 0.1s;

@@ -1,12 +1,12 @@
 // also slightly copied from w3schools
-export const resizeElement = (borderElmnt, parentElmnt, props, emit, outlineCursor, resizing) => {
+export const resizeElement = (borderElmnt, parentElmnt, selected, emit, finishMove, finishResize, resizeDirection, resizing) => {
 	let borderSize, initialWidth, initialHeight,
 		initElmntLeft, initElmntWidth,
 		initElmntTop, initElmntHeight;
 	borderElmnt.onmousedown = resizeMouseDown;
 
 	function resizeMouseDown(e) {
-		if (props.selected) {
+		if (selected) {
 			e = e || window.event;
 			e.preventDefault();
 			e.stopPropagation();
@@ -36,28 +36,28 @@ export const resizeElement = (borderElmnt, parentElmnt, props, emit, outlineCurs
 
 		const borderOffset = -borderSize/2;
 
-		const width = (outlineCursor.value[0] > 0)? mouseX - initElmntLeft: initElmntWidth - mouseX + initElmntLeft;
-		const height = (outlineCursor.value[1] > 0)? mouseY - initElmntTop: initElmntHeight - mouseY + initElmntTop;
+		const width = (resizeDirection.value[0] > 0)? mouseX - initElmntLeft: initElmntWidth - mouseX + initElmntLeft;
+		const height = (resizeDirection.value[1] > 0)? mouseY - initElmntTop: initElmntHeight - mouseY + initElmntTop;
 		const resizeScale = (width / initialWidth + height / initialHeight) / 2; // a decimal
 		const percentChange = resizeScale - 1; // a decimal
 		
 
-		if (outlineCursor.value[0] > 0) {
-			if (outlineCursor.value[1] > 0)
+		if (resizeDirection.value[0] > 0) {
+			if (resizeDirection.value[1] > 0)
 				emit("resize", initialWidth * resizeScale + borderOffset, initialHeight * resizeScale + borderOffset);
-			else if (outlineCursor.value[1] < 0) {
+			else if (resizeDirection.value[1] < 0) {
 				emit("resize", (initialWidth * resizeScale) + borderOffset, (initialHeight * resizeScale) + borderOffset);
 				emit("move", null, initElmntTop - (initialHeight * percentChange) - borderOffset);
 			}
 			else
 				emit("resize", width + borderOffset, null);
 		}
-		else if (outlineCursor.value[0] < 0) {
-			if (outlineCursor.value[1] > 0) {
+		else if (resizeDirection.value[0] < 0) {
+			if (resizeDirection.value[1] > 0) {
 				emit("resize", (initialWidth * resizeScale) + borderOffset, (initialHeight * resizeScale) + borderOffset);
 				emit("move", initElmntLeft - (initialWidth * percentChange) - borderOffset, null);
 			}
-			else if (outlineCursor.value[1] < 0) {
+			else if (resizeDirection.value[1] < 0) {
 				emit("resize", (initialWidth * resizeScale) + borderOffset, (initialHeight * resizeScale) + borderOffset);
 				emit("move", initElmntLeft - (initialWidth * percentChange) - borderOffset, 
 							initElmntTop - (initialHeight * percentChange) - borderOffset);
@@ -68,9 +68,9 @@ export const resizeElement = (borderElmnt, parentElmnt, props, emit, outlineCurs
 			}
 		}
 		else {
-			if (outlineCursor.value[1] > 0)
+			if (resizeDirection.value[1] > 0)
 				emit("resize", null, height + borderOffset);
-			else if (outlineCursor.value[1] < 0) {
+			else if (resizeDirection.value[1] < 0) {
 				emit("resize", null, height + borderOffset);
 				emit("move", null, mouseY - borderOffset);
 			}
@@ -84,18 +84,18 @@ export const resizeElement = (borderElmnt, parentElmnt, props, emit, outlineCurs
 
 		parentElmnt.classList.remove('notransition');
 		resizing.value = false;
-		emit('finishMove');
-		emit('finishResize');
+		finishMove();
+		finishResize();
 	}
 };
 
 // mostly copied from w3schools
-export const dragElement = (elmnt, props, emit, cursorType) => {
-	let deltaX = 0, deltaY = 0, startingX = 0, startingY = 0;
+export const dragElement = (elmnt, selected, emit, finishMove, cursorType) => {
+	let startingX = 0, startingY = 0;
 	elmnt.onmousedown = dragMouseDown;
 
 	function dragMouseDown(e) {
-		if (props.selected) {
+		if (selected.value) {
 			cursorType.value = "grabbing";
 
 			e = e || window.event;
@@ -115,8 +115,8 @@ export const dragElement = (elmnt, props, emit, cursorType) => {
 		e = e || window.event;
 		e.preventDefault();
 		// calculate the new cursor position:
-		deltaX = startingX - e.clientX;
-		deltaY = startingY - e.clientY;
+		const deltaX = startingX - e.clientX;
+		const deltaY = startingY - e.clientY;
 		startingX = e.clientX;
 		startingY = e.clientY;
 		// turn off transition temporarily
@@ -130,6 +130,6 @@ export const dragElement = (elmnt, props, emit, cursorType) => {
 		cursorType.value = "grab";
 
 		elmnt.classList.remove('notransition');
-		emit('finishMove');
+		finishMove();
 	}
 };

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import BoardItem from '../BoardItem.vue';
 const props = defineProps(['data']);
 const emit = defineEmits(['updateHeader', 'changeScreen', 'updateData']);
@@ -9,26 +9,52 @@ emit('updateHeader', true, `${board.name} - ${board.id}`);
 
 const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
 
-const updateItems = ref(0);
-board.on('update', () => updateItems.value ++);
-// NOTE: only updating will update to the items in the board
-const items = computed(() => {
-	updateItems.value; // used to force update since board isn't reactive
-	console.log("Updating Screen");
-	return board.boardItems;
+const items = ref(board.boardItems);
+window.items = items; // TEMPORARY FOR DEBUGGING REMOVE LATER _______--------------______-------------------________----------
+board.onAny(() => {
+	console.log("board update", board.boardItems);
+	items.value = board.boardItems;
 });
+const selectedItem = ref(null);
+board.on("itemSelect", (key, item) => {
+	selectedItem.value = item;
+});
+
 const updateSelection = (e, key) => {
 	cancelEvent(e);
-	board.selectItem(key)
+	// if deselecting and parenting, then parent
+	if (key == null) {
+		board.parentItem(selectedItem.value.key, parentingItemKey.value);
+		parentingItemKey.value = null;
+		parentingArea.value = 0;
+	}
+	board.selectItem(key);
+};
+
+const parentingItemKey = ref(null);
+const parentingArea = ref(0);
+const onIntersect = (key, areaPercent) => {
+	if (!selectedItem.value)
+		return;
+	if (parentingItemKey.value == key) {
+		parentingArea.value = areaPercent;
+		if (parentingArea.value == 0)
+			return parentingItemKey.value = null;
+	}
+	if (areaPercent > parentingArea.value) {
+		parentingItemKey.value = key;
+		parentingArea.value = areaPercent;
+	}
 };
 
 // keys assigned in board, as they need to be synced
-const addItem = (x, y, z, width, height, type, data, children) => {
+const addItem = (x, y, z, width, height, type, data, parent) => {
 	board.addItem({
 		x, y, z, 
 		width, height,
 		type, data,
-		children: children? children: []
+		parent: parent? parent: null,
+		children: new Map()
 	});
 };
 
@@ -36,9 +62,10 @@ const uploadData = (e) => {
 	cancelEvent(e);
 	
 	const fileReader = new FileReader();
+	console.log(e);
 	fileReader.readAsDataURL(e.dataTransfer.files[0]);
 	fileReader.onload = async (file) => {
-		const res = file.target.result;
+		const res  = file.target.result;
 		const img = await resizeImg(100000, res);
 		addItem(e.clientX - img.width/2, e.clientY - img.height/2, 0, img.width, img.height, "img", {dataURL: img.toDataURL()});
 	};
@@ -72,6 +99,11 @@ const resizeImg = async (pixels, dataURL) => {
 		};
 	});
 };
+onMounted(() => {
+	document.addEventListener("drop", uploadData);
+	document.addEventListener("dragover", cancelEvent);
+	document.addEventListener("drag", cancelEvent);
+});
 </script>
 
 <template>
@@ -79,14 +111,19 @@ const resizeImg = async (pixels, dataURL) => {
 		<div id="tool-bar">
 			<img src="../../assets/icons/Paint_Brush.svg">
 		</div>
-		<div id="board-item-container" @drop="uploadData"
-		@dragover="cancelEvent" @drag="cancelEvent">
+		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
 			<BoardItem v-for="[key, item] in items" :key="key"
-			@click="(e) => updateSelection(e, key)" @deselect="updateSelection" :selected = "item.selected"
-			:x="item.x" :y="item.y" :z="item.z" @finishMove="board.moveItem(key, item.x, item.y)" 
-			@move="(x, y, z) => {item.x = x? x: item.x; item.y = y? y: item.y; item.z = z? z: item.z;}"
-			:width="item.width" :height="item.height" @finishResize="board.resizeItem(key, item.width, item.height)"
-			@resize="(width, height) => {item.width = width? width: item.width; item.height = height? height: item.height;}"
+			@updateSelection="updateSelection" :selectedItem = "selectedItem"
+			@updateIntersection="onIntersect" :parentingItemKey="parentingItemKey"
+			
+			:x="item.x" :y="item.y" :z="item.z" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
+			@finishMove="(key, x, y, z) => board.moveItem(key, x, y, z)" 
+			@move="(x, y, z) => {item.moveTo(x, y, z);}"
+			
+			:width="item.width" :height="item.height" 
+			@finishResize="(key, width, height) => board.resizeItem(key, width, height)"
+			@resize="(width, height) => {item.resizeTo(width, height);}"
+			
 			:type="item.type" :data="item.data"
 			:children="item.children">
 			</BoardItem>
@@ -99,6 +136,9 @@ const resizeImg = async (pixels, dataURL) => {
 	width: 100%;
 	height: 100%;
 	user-select: none;
+}
+#board-item-container.pointer {
+	cursor: pointer;
 }
 
 #tool-bar {

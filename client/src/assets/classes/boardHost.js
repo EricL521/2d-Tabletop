@@ -53,7 +53,7 @@ connectionEvents.on('join', function (conn, password, playerName) {
 	if (!password || this.password === password) {
 		this.addPlayer(playerName, conn);
 		conn.send(['joinResponse', true, this.name, Array.from(this.playerNames), 
-					this.settings, Array.from(this.boardItems), this.nextKey]);
+					this.settings, Array.from(this.allItems), this.nextKey]);
 	}
 	else {
 		conn.send(['joinResponse', false]);

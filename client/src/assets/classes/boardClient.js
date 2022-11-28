@@ -18,6 +18,13 @@ export class BoardClient extends Board {
 		}
 	}
 
+	// generates this.boardItems from this.allItems
+	generateBoardItems () {
+		for (const [key, item] of this.allItems)
+			if (!item.parent)
+				this.boardItems.set(key, item);
+	}
+
 	onConnection (conn, isRetry) {
 		this.connCheck = setTimeout(() => {
 			delete this.connCheck; // no longer needed
@@ -69,17 +76,19 @@ export class BoardClient extends Board {
 
 }
 
-connectionEvents.on('joinResponse', function (conn, success, boardName, playerNames, settings, boardItems, nextKey) {
+connectionEvents.on('joinResponse', function (conn, success, boardName, playerNames, settings, allItems, nextKey) {
 	if (success) {
 		this.name = boardName;
 		this.playerNames = new Set(playerNames);
 		this.settings = settings;
-		this.boardItems = new Map(boardItems);
+		this.allItems = new Map(allItems);
+		// generate orderedItems
+		this.generateBoardItems();
 		this.nextKey = nextKey;
 		
 		delete this.password; // no longer needed
 
-		this.emit("joined");
+		this.emit("join");
 	}
 	else {
 		// implememnt later
