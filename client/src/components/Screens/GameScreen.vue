@@ -5,6 +5,7 @@ const props = defineProps(['data']);
 const emit = defineEmits(['updateHeader', 'changeScreen', 'updateData']);
 // eslint-disable-next-line vue/no-setup-props-destructure
 const board = props.data.board;
+console.log(`${board.name} - ${board.id}`);
 emit('updateHeader', true, `${board.name} - ${board.id}`);
 
 const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
@@ -12,37 +13,38 @@ const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
 const items = ref(board.boardItems);
 window.items = items; // TEMPORARY FOR DEBUGGING REMOVE LATER _______--------------______-------------------________----------
 board.onAny(() => {
-	console.log("board update", board.boardItems);
+	console.log("board update");
 	items.value = board.boardItems;
 });
+
 const selectedItem = ref(null);
 board.on("itemSelect", (key, item) => {
 	selectedItem.value = item;
 });
-
 const updateSelection = (e, key) => {
 	cancelEvent(e);
 	// if deselecting and parenting, then parent
-	if (key == null) {
-		board.parentItem(selectedItem.value.key, parentingItemKey.value);
-		parentingItemKey.value = null;
+	// selecteditem is when you click without selecting anything previously
+	if (key == null && selectedItem.value) {
+		board.parentItem(selectedItem.value.key, parentingItem.value? parentingItem.value.key: null);
+		parentingItem.value = null;
 		parentingArea.value = 0;
 	}
 	board.selectItem(key);
 };
 
-const parentingItemKey = ref(null);
+const parentingItem = ref(null);
 const parentingArea = ref(0);
 const onIntersect = (key, areaPercent) => {
 	if (!selectedItem.value)
 		return;
-	if (parentingItemKey.value == key) {
+	if (parentingItem.value && parentingItem.value.key == key) {
 		parentingArea.value = areaPercent;
 		if (parentingArea.value == 0)
-			return parentingItemKey.value = null;
+			return parentingItem.value = null;
 	}
 	if (areaPercent > parentingArea.value) {
-		parentingItemKey.value = key;
+		parentingItem.value = board.getItem(key);
 		parentingArea.value = areaPercent;
 	}
 };
@@ -112,9 +114,10 @@ onMounted(() => {
 			<img src="../../assets/icons/Paint_Brush.svg">
 		</div>
 		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
-			<BoardItem v-for="[key, item] in items" :key="key"
+			<!-- For nonchildren only -->
+			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item"
 			@updateSelection="updateSelection" :selectedItem = "selectedItem"
-			@updateIntersection="onIntersect" :parentingItemKey="parentingItemKey"
+			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
 			:x="item.x" :y="item.y" :z="item.z" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
 			@finishMove="(key, x, y, z) => board.moveItem(key, x, y, z)" 

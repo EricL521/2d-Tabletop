@@ -7,8 +7,8 @@ connectionEvents.on = connectionEvents.set;
 export class BoardClient extends Board {
 	static connectionEvents = connectionEvents;
 
-	constructor (gameId, password, hostPeerId, playerName, peer) {
-		super(null, gameId, password, null, playerName);
+	constructor (socket, gameId, password, hostPeerId, playerName, peer) {
+		super(socket, gameId, password, null, playerName);
 		// nulls of these will be set once connected to host
 		this.hostConn = null;
 
@@ -25,6 +25,7 @@ export class BoardClient extends Board {
 				this.boardItems.set(key, item);
 	}
 
+	// overrided to add rerouting through server if failed to connect through webrtc
 	onConnection (conn, isRetry) {
 		this.connCheck = setTimeout(() => {
 			delete this.connCheck; // no longer needed
@@ -39,8 +40,8 @@ export class BoardClient extends Board {
 				conn.close();
 				this.emit("connUpdate", "Rerouting through server");
 				// route through server
-				// implement later
-				console.log("rerourting through server")
+				// implement later _______________-------------------____________-----------
+				
 			}
 		}, 5000);
 
@@ -73,6 +74,16 @@ export class BoardClient extends Board {
 		if (!foreign)
 			this.hostConn.send(['resizeItem', key, width, height]);
 	}
+	parentItem (childKey, parentKey, foreign) {
+		super.parentItem(childKey, parentKey);
+		if (!foreign)
+			this.hostConn.send(['parentItem', childKey, parentKey]);
+	}
+	unparentItem (childKey, foreign) {
+		super.unparentItem(childKey);
+		if (!foreign)
+			this.hostConn.send(['unparentItem', childKey]);
+	}
 
 }
 
@@ -102,4 +113,10 @@ connectionEvents.on('moveItem', function(conn, key, x, y) {
 });
 connectionEvents.on('resizeItem', function(conn, key, width, height) {
 	this.resizeItem(key, width, height, true);
+});
+connectionEvents.on('parentItem', function(conn, childKey, parentKey) {
+	this.parentItem(childKey, parentKey, true);
+});
+connectionEvents.on('unparentItem', function(conn, childKey) {
+	this.unparentItem(childKey, true);
 });

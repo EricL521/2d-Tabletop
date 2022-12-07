@@ -12,12 +12,14 @@ connectionEvents.on = connectionEvents.set;
 export class Board {
 	static connectionEvents = connectionEvents; // expected to be replaced
 
-	constructor (name, gameId, password, settings, playerName) {
+	constructor (socket, name, gameId, password, settings, playerName) {
 		// throw errors if invalid child class
 		if (this.constructor == Board)
 			throw new Error("Board is an abstract class");
 		if (this.constructor.connectionEvents == null)
 			throw new Error(`${this.constructor.name}.connectionEvents must be defined`);
+		
+		this.socket = socket; // for routing through server
 		
 		this.selectedItemKey = null;
 		this.boardItems = new Map(); // structured order
@@ -92,8 +94,9 @@ export class Board {
 		const oldItem = this.getItem(this.selectedItemKey);
 		if (oldItem)
 			oldItem.deselect();
-		if (newItem)
+		if (newItem) {
 			newItem.select();
+		}
 		this.selectedItemKey = key;
 		this.emit("itemSelect", key, newItem);
 	}
@@ -126,7 +129,7 @@ export class Board {
 			return;
 		if (parent && parent.parent && parent.parent.key == childKey)
 			return; // can't reverse parenting direction
-		if (!this.boardItems.has(childKey))
+		if (!this.boardItems.has(childKey)) // NOTE: boarditem is the ordered map
 			this.unparentItem(childKey); // reset childkey
 		if (!parent)
 			return; // no parent
@@ -140,7 +143,9 @@ export class Board {
 	unparentItem(childKey) {
 		const child = this.getItem(childKey);
 		const parent = child.parent;
-
+		if (!parent)
+			return; // no parent
+		
 		parent.removeChild(child);
 		this.boardItems.set(childKey, child);
 

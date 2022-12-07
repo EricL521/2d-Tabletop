@@ -3,20 +3,31 @@ import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 import { resizeElement, dragElement } from './BoardItemHelper.js';
 
 const emit = defineEmits(['updateSelection', 'updateIntersection', 'move', 'finishMove', 'resize', 'finishResize']);
-const props = defineProps(['selectedItem', 'parentingItemKey', 'x', 'y', 'z', 'absoluteX', 'absoluteY',
-							'width', 'height', 'type', 'data', 'children', 'isChild']);
+const props = defineProps(['selectedItem', 'parentingItem', 'thisItem', 'x', 'y', 'z', 'absoluteX', 'absoluteY',
+							'width', 'height', 'type', 'data', 'children', 'isChild', 'parent']);
 const key = getCurrentInstance().vnode.key;
 const isSelected = ref(false);
+// if child is selected, move parent to top
+const childSelected = ref(false);
 const isParenting = ref(false);
-watch(() => props.parentingItemKey, (newVal) => {
-	isParenting.value = newVal === key;
+watch(() => props.parentingItem, (parentingItem) => {
+	if (!parentingItem)
+		return isParenting.value = false;
+	isParenting.value = parentingItem.key === key || props.thisItem.isAncestorOf(parentingItem);
 });
-// watch if selected item overlaps with this one
-watch(() => props.selectedItem, (newVal) => {
-	isSelected.value = newVal? (newVal.key === key): false;
-	if (newVal && !(newVal.key == key))
-		emit('updateIntersection', key, intersectionArea(newVal));
+watch(() => props.selectedItem, (selectedItem) => {
+	isSelected.value = selectedItem? (selectedItem.key === key): false;
+	childSelected.value = selectedItem? props.thisItem.isAncestorOf(selectedItem): false;
+
+	if (!selectedItem || (selectedItem.key === key))
+		return;
+	// watch for overlapping if different item
+	if (!props.thisItem.isDescendantOf(selectedItem))
+		onIntersect(key, intersectionArea(selectedItem));
 }, {deep: true});
+const onIntersect = (itemKey, areaPercent) => {
+	emit('updateIntersection', itemKey, areaPercent);
+};
 // returns the percent area of intersection if intersecting, or null if not
 const intersectionArea = (item) => {
 	const smallXItem = item.width < props.width? item: props;
@@ -24,26 +35,35 @@ const intersectionArea = (item) => {
 	const smallYItem = item.height < props.height? item: props;
 	const bigYItem = item.height < props.height? props: item;
 
-	const lowerXIn = smallXItem.absoluteX >= bigXItem.absoluteX && smallXItem.absoluteX <= bigXItem.absoluteX + bigXItem.width;
-	const upperXIn = smallXItem.absoluteX + smallXItem.width >= bigXItem.absoluteX && smallXItem.absoluteX + smallXItem.width <= bigXItem.absoluteX + bigXItem.width;
-	const lowerYIn = smallYItem.absoluteY >= bigYItem.absoluteY && smallYItem.absoluteY <= bigYItem.absoluteY + bigYItem.height;
-	const upperYIn = smallYItem.absoluteY + smallYItem.height >= bigYItem.absoluteY && smallYItem.absoluteY + smallYItem.height <= bigYItem.absoluteY + bigYItem.height;
+	// smallx and smally aren't necessarily the same item
+	const smallX = smallXItem.absoluteX;
+	const bigX = bigXItem.absoluteX;
+	const smallY = smallYItem.absoluteY;
+	const bigY = bigYItem.absoluteY;
+	const lowerXIn = smallX >= bigX && smallX <= bigX + bigXItem.width;
+	const upperXIn = smallX + smallXItem.width >= bigX && smallX + smallXItem.width <= bigX + bigXItem.width;
+	const lowerYIn = smallY >= bigY && smallY <= bigY + bigYItem.height;
+	const upperYIn = smallY + smallYItem.height >= bigY && smallY + smallYItem.height <= bigY + bigYItem.height;
+	
+	const thisItem = {x: props.absoluteX, y: props.absoluteY, width: props.width, height: props.height};
+	const selectedItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height};
 	
 	if (!((lowerXIn || upperXIn) && (lowerYIn || upperYIn)))
 		return 0;
-	
-	return (lowerXIn? Math.abs(props.x + props.width - item.x): Math.abs(item.x + item.width - props.x)) * 
-			(lowerYIn? Math.abs(props.y + props.height - item.y): Math.abs(item.y + item.height - props.y)) / 
-			(props.width * props.height);
+	// const thisItem = {x: props.absoluteX, y: props.absoluteY, width: props.width, height: props.height};
+	// const selectedItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height};
+	return (lowerXIn? Math.abs(thisItem.x + thisItem.width - selectedItem.x): 
+					Math.abs(selectedItem.x + selectedItem.width - thisItem.x)) * 
+			(lowerYIn? Math.abs(thisItem.y + thisItem.height - selectedItem.y): 
+					Math.abs(selectedItem.y + selectedItem.height - thisItem.y)) / 
+			(thisItem.width * thisItem.height);
 }
-
-const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
 
 const positionStyle = computed(() => {
 	return {
 		left: props.x + 'px',
 		top: props.y + 'px',
-		zIndex: isSelected.value? 10000: props.z
+		zIndex: props.z
 	};
 });
 const sizeStyle = computed(() => {return {
@@ -98,7 +118,7 @@ const backgroundCursor = computed(() => {
 });
 
 const updateSelection = (e, key) => {
-	cancelEvent(e);
+	// event is cancelled in gamescren
 	emit('updateSelection', e, key);
 };
 const finishMove = (itemKey, x, y, z) => {
@@ -124,9 +144,9 @@ onMounted(() => {
 </script>
 
 <template>
-	<div :id="key" class="board-item" :class="{child: props.isChild, selected: isSelected || isParenting, transparent: isSelected}"
+	<div :id="key" class="board-item" :class="{child: props.isChild, childSelected: childSelected, selected: isSelected, parenting: isParenting}"
 		:style="[positionStyle, cursorStyle, sizeStyle]" 
-	@click="(e) => updateSelection(e, key)" ref="boardItem">
+		@click="(e) => updateSelection(e, key)" ref="boardItem">
 		<div ref="outline" id="outline" :class="{hidden: !isSelected}" :style="outlineMouseStyle" @mousemove="updateResizeDirection">
 			<div class="left"></div>
 			<div class="right"></div>
@@ -135,10 +155,12 @@ onMounted(() => {
 		</div>
 		<div id="background" v-if="isSelected && backgroundCursor" :style="backgroundCursor"></div>
 		<div id="children">
-			<BoardItem v-for="[key, item] in props.children" :key="key"
+			<!-- IF SOMETHING IS WORKING FOR THE PARENT, BUT NOT THE CHILDREN THE PROBLEM IS HERE -->
+			<BoardItem v-for="[key, item] in props.children" :key="key" :thisItem="item"
 			@updateSelection="updateSelection" :selectedItem = "props.selectedItem"
+			@updateIntersection="onIntersect" :parentingItem="props.parentingItem"
 			
-			:x="item.x" :y="item.y" :z="item.z" @finishMove="finishMove" 
+			:x="item.x" :y="item.y" :z="item.z" @finishMove="finishMove" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
 			@move="(x, y, z) => {item.x = x? x: item.x; item.y = y? y: item.y; item.z = z? z: item.z;}"
 			
 			:width="item.width" :height="item.height" 
@@ -146,7 +168,7 @@ onMounted(() => {
 			@resize="(width, height) => {item.width = width? width: item.width; item.height = height? height: item.height;}"
 			
 			:type="item.type" :data="item.data"
-			:children="item.children" :isChild="true">
+			:children="item.children" :isChild="true" :parent="item.parent">
 			</BoardItem>
 		</div>
 		
@@ -177,13 +199,28 @@ div {
 .board-item.child {
 	transition: inherit;
 }
-.board-item.selected {
+/* Parenting has to appear first, to have lower priority */
+.board-item.parenting {
 	box-shadow: #25171a 0.4em 0.4em 0.8em;
 	transform: translate(-0.3em, -0.3em);
+	z-index: 9999 !important; 
 }
-.board-item.transparent {
+.board-item.parenting.child {
+	transform: translate(0, 0);
+}
+.board-item.childSelected {
+	z-index: 10000 !important;
+}
+.board-item.selected {
 	opacity: 0.75;
+	box-shadow: #25171a 0.4em 0.4em 0.8em;
+	transform: translate(-0.3em, -0.3em);
+	z-index: 10000 !important; 
 }
+.board-item.selected.child {
+	transform: translate(0, 0);
+}
+
 #outline {
 	position: absolute;
 	left: -0.3em;

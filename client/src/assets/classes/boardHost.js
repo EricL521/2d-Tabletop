@@ -7,8 +7,8 @@ connectionEvents.on = connectionEvents.set;
 export class BoardHost extends Board {
 	static connectionEvents = connectionEvents;
 
-	constructor (name, gameId, password, settings, playerName, peer) {
-		super(name, gameId, password, settings, playerName);
+	constructor (socket, name, gameId, password, settings, playerName, peer) {
+		super(socket, name, gameId, password, settings, playerName);
 		
 		this.playerConnections = new Map(); 
 		// conn => name b/c connections fire disconnect events
@@ -19,6 +19,7 @@ export class BoardHost extends Board {
 		this.removePlayer(conn);
 	}
 
+	// ignoreconn is the connection which the update came from
 	updatePlayers (ignoredConn, event, ...args) {
 		for (const conn of this.playerConnections.keys())
 			if (conn !== ignoredConn)
@@ -36,6 +37,14 @@ export class BoardHost extends Board {
 	resizeItem (key, width, height, playerConn) {
 		super.resizeItem(key, width, height);
 		this.updatePlayers(playerConn, 'resizeItem', key, width, height);
+	}
+	parentItem (childKey, parentKey, playerConn) {
+		super.parentItem(childKey, parentKey);
+		this.updatePlayers(playerConn, 'parentItem', childKey, parentKey);
+	}
+	unparentItem (childKey, playerConn) {
+		super.unparentItem(childKey);
+		this.updatePlayers(playerConn, 'unparentItem', childKey);
 	}
 
 	addPlayer (name, connection) {
@@ -68,4 +77,10 @@ connectionEvents.on('moveItem', function(conn, key, x, y) {
 });
 connectionEvents.on('resizeItem', function(conn, key, width, height) {
 	this.resizeItem(key, width, height, conn);
+});
+connectionEvents.on('parentItem', function(conn, childKey, parentKey) {
+	this.parentItem(childKey, parentKey, conn);
+});
+connectionEvents.on('unparentItem', function(conn, childKey) {
+	this.unparentItem(childKey, conn);
 });

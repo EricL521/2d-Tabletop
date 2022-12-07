@@ -10,7 +10,7 @@
 	const status = ref("Loading");
 
 	socket.emit('joinBoard', props.data.gameId, (hostPeerId) => {
-		const board = new BoardClient(props.data.gameId, props.data.gamePassword, hostPeerId, props.data.playerName, peer);
+		const board = new BoardClient(socket, props.data.gameId, props.data.gamePassword, hostPeerId, props.data.playerName, peer);
 		board.on("joined", () => {
 			emit('updateData', {
 				"playerName": props.data.playerName,
@@ -28,6 +28,6 @@
 
 <template>
 	<div class="up-down-flex">
-		<LoadingText>{{ status }}</LoadingText>
+		<LoadingText :text="status"></LoadingText>
 	</div>
 </template>

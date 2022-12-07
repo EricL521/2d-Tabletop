@@ -8,7 +8,7 @@
 	const emit = defineEmits(['changeScreen', 'updateData']);
 
 	socket.emit('createBoard', peer.id, props.data.settings, (gameId) => {
-		const board = new BoardHost(props.data.gameName, gameId, props.data.password, props.data.settings, 
+		const board = new BoardHost(socket, props.data.gameName, gameId, props.data.password, props.data.settings, 
 									props.data.playerName, peer);
 		// update data
 		emit('updateData', {
@@ -22,6 +22,6 @@
 
 <template>
 	<div class="up-down-flex">
-		<LoadingText>creating</LoadingText>
+		<LoadingText text="creating"></LoadingText>
 	</div>
 </template>

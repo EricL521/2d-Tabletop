@@ -18,10 +18,27 @@ export class BoardItemJSON {
 	}
 
 	get absoluteX() {
-		return this.x + (this.parent? this.parent.absoluteX: 0);
+		const result =  this.x + (this.parent? this.parent.absoluteX: 0);
+		return result;
 	}
 	get absoluteY() {
 		return this.y + (this.parent? this.parent.absoluteY: 0);
+	}
+
+	// returns whther this item is a descendant of the item with the given key
+	isDescendantOf(parentItem) {
+		if (!parentItem || !this.parent)
+			return false;
+		if (this.parent.key == parentItem.key)
+			return true;
+		return this.parent.isDescendantOf(parentItem);
+	}
+	// i keep makign this typo
+	isDescendentOf(parentItem) {
+		return this.isDescendantOf(parentItem);
+	}
+	isAncestorOf(childItem) {
+		return childItem.isDescendantOf(this);
 	}
 
 	moveTo (x, y, z) {
@@ -34,19 +51,30 @@ export class BoardItemJSON {
 		width = width? width: this.width;
 		height = height? height: this.height;
 
-		for (const itemKeyPair of this.children) {
-			const item = itemKeyPair[1];
-			item.resizeBy(width / this.width, height / this.height);
-			// resize x and y values
-			item.moveTo(item.x * width / this.width, item.y * height / this.height);
-		}
-		this.width = width;
-		this.height = height;
+		this.resizeBy(width / this.width, height / this.height);
 	}
 	// multiplies width and height by x and y respectively
+	// also updates children
 	resizeBy (x, y) {
+		for (const itemKeyPair of this.children) {
+			const item = itemKeyPair[1];
+			item.resizeBy(x, y);
+			// resize x and y values
+			item.moveTo(item.x * x, item.y * y);
+		}
+		
 		this.width *= x;
 		this.height *= y;
+	}
+
+	// calling these also automatically calls setParent and removeParent
+	addChild(child) {
+		this.children.set(child.key, child);
+		child.setParent(this);
+	}
+	removeChild(child) {
+		this.children.delete(child.key);
+		child.removeParent();
 	}
 
 	setParent(parent) {
@@ -65,15 +93,6 @@ export class BoardItemJSON {
 		this.x += this.parent.absoluteX;
 		this.y += this.parent.absoluteY;
 		this.parent = null;
-	}
-
-	addChild(child) {
-		this.children.set(child.key, child);
-		child.setParent(this);
-	}
-	removeChild(child) {
-		this.children.delete(child.key);
-		child.removeParent();
 	}
 
 	select() {
