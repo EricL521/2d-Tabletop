@@ -41,6 +41,25 @@ export class BoardItemJSON {
 		return childItem.isDescendantOf(this);
 	}
 
+	// returns percent area of this item covered by other item
+	percentAreaCoveredBy(item) {
+		// created to only call absoluteX and absoluteY once
+		const otherItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height};
+		const thisItem = {x: this.absoluteX, y: this.absoluteY, width: this.width, height: this.height};
+		
+		// get lower of the 2 rightX values, and higher of the 2 leftX values
+		const lowerX = Math.min(thisItem.x + this.width, otherItem.x + otherItem.width);
+		const higherX = Math.max(thisItem.x, otherItem.x);
+		// do same for y
+		const lowerY = Math.min(thisItem.y + this.height, otherItem.y + otherItem.height);
+		const higherY = Math.max(thisItem.y, otherItem.y);
+		// if the lower is less than the higher, then the items do not overlap
+		if (lowerX < higherX || lowerY < higherY)
+			return 0;
+		
+		return (higherX - lowerX) * (higherY - lowerY) / (thisItem.width * thisItem.height);
+	}
+
 	moveTo (x, y, z) {
 		this.x = x? x: this.x;
 		this.y = y? y: this.y;

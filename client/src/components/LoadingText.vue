@@ -24,7 +24,7 @@ watch(() => props.text, (newText) => {
 				return; // chance of not changing
 			
 			// chance of just going to the correct value
-			if (Math.random() / 4 > Math.pow(unfinishedChars.size / displayText.value.length, 2) && i < newText.length)
+			if (Math.random() / 5 > Math.pow(unfinishedChars.size / displayText.value.length, 2) && i < newText.length)
 				displayText.value = displayText.value.substring(0, i) + newText[i] + displayText.value.substring(i + 1);
 			else
 				displayText.value = displayText.value.substring(0, i) + 
@@ -35,7 +35,7 @@ watch(() => props.text, (newText) => {
 		});
 		
 		const lengthDifference = newText.length - displayText.value.length;
-		// increasing chance of removing or adding character if needed
+		// increasing chance of removing or adding character as more chars finish
 		if (lengthDifference > 0 && Math.random() > unfinishedChars.size / displayText.value.length) { // adding
 			displayText.value += newText[Math.floor(Math.random() * newText.length)];
 			unfinishedChars.add(displayText.value.length - 1);
@@ -60,7 +60,7 @@ onMounted(() => {
 	interval = setInterval(() => {
 		if (index.value ++ >= 2)
 			index.value = 0;
-	}, 1250);
+	}, 1000);
 });
 onUnmounted(() => {
 	clearInterval(interval);

@@ -1,5 +1,5 @@
 <script setup>
-	import { ref } from 'vue';
+	import { ref, watch } from 'vue';
 	import ToggleSwitch from '../ToggleSwitch.vue';
 	
 	const emit = defineEmits(['changeScreen', 'updateData']);
@@ -53,6 +53,12 @@
 		});
 		emit('changeScreen', 'JoinScreen');
 	};
+
+	watch([playerName, gameName, gameId], () => {
+		playerNameInput.value.required = false;
+		gameNameInput.value.required = false;
+		gameIdInput.value.required = false;
+	});
 </script>
 
 <template>
@@ -89,12 +95,16 @@ input, button {
 	font-weight: 100;
 	border-radius: 100vw;
 	text-align: center;
-	transition: 0.1s;
+	transition: 0.25s;
 }
 input {
 	margin: 0.1em;
 	border: 2px solid #25171A;
 	outline: none;
+}
+input:focus {
+	border: 2px solid #7280AC;
+	background-color: #BCE3B5;
 }
 input:required {
 	border: 2px solid #C3423F;

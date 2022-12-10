@@ -23,41 +23,11 @@ watch(() => props.selectedItem, (selectedItem) => {
 		return;
 	// watch for overlapping if different item
 	if (!props.thisItem.isDescendantOf(selectedItem))
-		onIntersect(key, intersectionArea(selectedItem));
+		onIntersect(key, selectedItem.percentAreaCoveredBy(props.thisItem));
 }, {deep: true});
 const onIntersect = (itemKey, areaPercent) => {
 	emit('updateIntersection', itemKey, areaPercent);
 };
-// returns the percent area of intersection if intersecting, or null if not
-const intersectionArea = (item) => {
-	const smallXItem = item.width < props.width? item: props;
-	const bigXItem = item.width < props.width? props: item;
-	const smallYItem = item.height < props.height? item: props;
-	const bigYItem = item.height < props.height? props: item;
-
-	// smallx and smally aren't necessarily the same item
-	const smallX = smallXItem.absoluteX;
-	const bigX = bigXItem.absoluteX;
-	const smallY = smallYItem.absoluteY;
-	const bigY = bigYItem.absoluteY;
-	const lowerXIn = smallX >= bigX && smallX <= bigX + bigXItem.width;
-	const upperXIn = smallX + smallXItem.width >= bigX && smallX + smallXItem.width <= bigX + bigXItem.width;
-	const lowerYIn = smallY >= bigY && smallY <= bigY + bigYItem.height;
-	const upperYIn = smallY + smallYItem.height >= bigY && smallY + smallYItem.height <= bigY + bigYItem.height;
-	
-	const thisItem = {x: props.absoluteX, y: props.absoluteY, width: props.width, height: props.height};
-	const selectedItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height};
-	
-	if (!((lowerXIn || upperXIn) && (lowerYIn || upperYIn)))
-		return 0;
-	// const thisItem = {x: props.absoluteX, y: props.absoluteY, width: props.width, height: props.height};
-	// const selectedItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height};
-	return (lowerXIn? Math.abs(thisItem.x + thisItem.width - selectedItem.x): 
-					Math.abs(selectedItem.x + selectedItem.width - thisItem.x)) * 
-			(lowerYIn? Math.abs(thisItem.y + thisItem.height - selectedItem.y): 
-					Math.abs(selectedItem.y + selectedItem.height - thisItem.y)) / 
-			(thisItem.width * thisItem.height);
-}
 
 const positionStyle = computed(() => {
 	return {
