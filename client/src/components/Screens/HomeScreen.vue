@@ -7,13 +7,18 @@
 	const playerName = ref("");
 	const playerNameInput = ref(null);
 	
+	const resetRequired = () => {
+		playerNameInput.value.required = false;
+		gameNameInput.value.required = false;
+		gameIdInput.value.required = false;
+	};
+	
 	const gameName = ref("");
 	const gameNameInput = ref(null);
 	const joinGamePassword = ref("");
 	const isPublic = ref(false);
 	const createGame = () => {
-		playerNameInput.value.required = false;
-		gameNameInput.value.required = false;
+		resetRequired();
 		if (!playerName.value) {
 			playerNameInput.value.focus();
 			return playerNameInput.value.required = true;
@@ -35,8 +40,7 @@
 	const gameId = ref("");
 	const gameIdInput = ref(null);
 	const joinGame = () => {
-		playerNameInput.value.required = false;
-		gameIdInput.value.required = false;
+		resetRequired();
 		if (!playerName.value) {
 			playerNameInput.value.focus();
 			return playerNameInput.value.required = true;
@@ -55,9 +59,7 @@
 	};
 
 	watch([playerName, gameName, gameId], () => {
-		playerNameInput.value.required = false;
-		gameNameInput.value.required = false;
-		gameIdInput.value.required = false;
+		resetRequired();
 	});
 </script>
 

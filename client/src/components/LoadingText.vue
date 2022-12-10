@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 const props = defineProps(['text']);
 const displayText = ref(props.text); // for transitioning text
 let transitionInterval = null;
+// where the transition happens
 watch(() => props.text, (newText) => {
 	clearInterval(transitionInterval);
 	if (!newText)
@@ -20,13 +21,14 @@ watch(() => props.text, (newText) => {
 
 		// randomize all characters
 		unfinishedChars.forEach((i) => {
-			if (Math.random() < 0.5)
+			// chance decreases as more characters finish
+			if (Math.random() * 2 < unfinishedChars.size / displayText.value.length)
 				return; // chance of not changing
 			
 			// chance of just going to the correct value
-			if (Math.random() / 5 > Math.pow(unfinishedChars.size / displayText.value.length, 2) && i < newText.length)
+			if (i < newText.length && Math.random() > Math.pow(unfinishedChars.size / displayText.value.length, 1/3))
 				displayText.value = displayText.value.substring(0, i) + newText[i] + displayText.value.substring(i + 1);
-			else
+			else // random character within new text
 				displayText.value = displayText.value.substring(0, i) + 
 								newText[Math.floor(Math.random() * newText.length)] + 
 								displayText.value.substring(i + 1);
