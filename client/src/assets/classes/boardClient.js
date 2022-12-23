@@ -8,21 +8,20 @@ export class BoardClient extends Board {
 	static connectionEvents = connectionEvents;
 
 	constructor (socket, gameId, password, hostPeerId, playerName, peer) {
-		super(socket, gameId, password, null, playerName);
-		// nulls of these will be set once connected to host
+		super(socket, null, gameId, password, null, playerName);
+		// null will be set once connected to host
 		this.hostConn = null;
 
 		// retry is whether or not it is a retry attempt
 		this.connect = (isRetry) => {
-			this.onConnection(peer.connect(hostPeerId), isRetry);
+			const conn = peer.connect(hostPeerId);
+			this.onConnection(conn, isRetry);
 		}
 	}
 
-	// generates this.boardItems from this.allItems
-	generateBoardItems () {
-		for (const [key, item] of this.allItems)
-			if (!item.parent)
-				this.boardItems.set(key, item);
+	// takes in array of items creates them, and also creats this.boardItems (structured list) too
+	parseItems(items) {
+		items.forEach(item => this.addItem(item, true));
 	}
 
 	// overrided to add rerouting through server if failed to connect through webrtc
@@ -40,49 +39,54 @@ export class BoardClient extends Board {
 				conn.close();
 				this.emit("connUpdate", "Rerouting through server");
 				// route through server
-				// implement later _______________-------------------____________-----------
-				
+				this.socket.on("routeOpen", this.onSocketConnection.bind(this));
+				this.socket.emit("requestRoute", this.id); // this.id = boardid
 			}
-		}, 5000);
-
+		}, 6000);
 		super.onConnection(conn);
 	}
 	// ran once on connection
 	onceConnection (conn) {
 		clearTimeout(this.connCheck);
 		delete this.connCheck;
+		delete this.connect; // no longer needed
 
 		this.hostConn = conn;
 		this.emit("connUpdate", "Joining");
 		// on first connecting, conn will emit a request to join game
-		conn.send(['join', this.password, this.playerName]);
+		this.sendToHost('join', this.password, this.playerName);
+	}
+
+	// sends data to host
+	sendToHost (...data) {
+		this.hostConn.send(...data);
 	}
 
 	// foreign: false if the local user added the item 
 	addItem (item, foreign) {
 		super.addItem(item);
 		if (!foreign)
-			this.hostConn.send(['addItem', item]);
+			this.sendToHost('addItem', item);
 	}
 	moveItem (key, x, y, foreign) {
 		super.moveItem(key, x, y);
 		if (!foreign)
-			this.hostConn.send(['moveItem', key, x, y]);
+			this.sendToHost('moveItem', key, x, y);
 	}
 	resizeItem (key, width, height, foreign) {
 		super.resizeItem(key, width, height);
 		if (!foreign)
-			this.hostConn.send(['resizeItem', key, width, height]);
+			this.sendToHost('resizeItem', key, width, height);
 	}
 	parentItem (childKey, parentKey, foreign) {
 		super.parentItem(childKey, parentKey);
 		if (!foreign)
-			this.hostConn.send(['parentItem', childKey, parentKey]);
+			this.sendToHost('parentItem', childKey, parentKey);
 	}
 	unparentItem (childKey, foreign) {
 		super.unparentItem(childKey);
 		if (!foreign)
-			this.hostConn.send(['unparentItem', childKey]);
+			this.sendToHost('unparentItem', childKey);
 	}
 
 }
@@ -90,15 +94,12 @@ export class BoardClient extends Board {
 connectionEvents.on('joinResponse', function (conn, success, boardName, playerNames, settings, allItems, nextKey) {
 	if (success) {
 		this.name = boardName;
-		this.playerNames = new Set(playerNames);
+		this.playerNames = playerNames;
 		this.settings = settings;
-		this.allItems = new Map(allItems);
-		// generate orderedItems
-		this.generateBoardItems();
+		this.parseItems(allItems);
 		this.nextKey = nextKey;
 		
 		delete this.password; // no longer needed
-
 		this.emit("join");
 	}
 	else {

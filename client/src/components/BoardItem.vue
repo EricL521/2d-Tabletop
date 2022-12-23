@@ -126,7 +126,7 @@ onMounted(() => {
 		<div id="background" v-if="isSelected && backgroundCursor" :style="backgroundCursor"></div>
 		<div id="children">
 			<!-- IF SOMETHING IS WORKING FOR THE PARENT, BUT NOT THE CHILDREN THE PROBLEM IS HERE -->
-			<BoardItem v-for="[key, item] in props.children" :key="key" :thisItem="item"
+			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item"
 			@updateSelection="updateSelection" :selectedItem = "props.selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="props.parentingItem"
 			

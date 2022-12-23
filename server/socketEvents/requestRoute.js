@@ -1,14 +1,16 @@
+// sets up a route through server to host
 const { Board } = require("../classes/board.js");
 
+// sends data to client/host
 module.exports = {
-	name: "joinBoard",
-	function: (socket, boardId, callback) => {
+	name: "requestRoute",
+	function: (socket, boardId) => {
 		boardId = parseInt(boardId);
-
 		const board = Board.boards.get(boardId);
 		if (!board)
-			return callback(false);
+			return;
+		
 		board.addPlayer(socket);
-		callback(board.host.peerId);
+		board.createRoute(socket.id);
 	}
-};
+}

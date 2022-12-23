@@ -1,5 +1,6 @@
 // code for the host of the game
 import { Board } from "./board";
+import { BoardItemJSON } from "./boardItemJSON";
 
 const connectionEvents = new Map();
 connectionEvents.on = connectionEvents.set;
@@ -11,19 +12,20 @@ export class BoardHost extends Board {
 		super(socket, name, gameId, password, settings, playerName);
 		
 		this.playerConnections = new Map(); 
-		// conn => name b/c connections fire disconnect events
+		// connID => name b/c connections fire disconnect events
 
 		peer.on('connection', this.onConnection.bind(this));
+		socket.on("routeOpen", this.onSocketConnection.bind(this));
 	}
 	onceConnectionClose (conn) {
 		this.removePlayer(conn);
 	}
-
+	
 	// ignoreconn is the connection which the update came from
 	updatePlayers (ignoredConn, event, ...args) {
 		for (const conn of this.playerConnections.keys())
 			if (conn !== ignoredConn)
-				conn.send([event, ...args]);
+				conn.send(event, ...args);
 	}
 	// connection is the connection of the player that added the item, or null
 	addItem (item, playerConn) {
@@ -52,20 +54,19 @@ export class BoardHost extends Board {
 		this.playerConnections.set(connection, name);
 	}
 	removePlayer (connection) {
-		connection.close();
 		super.removePlayer(this.playerConnections.get(connection));
-		this.playerConnections.delete(connection);
+		this.playerConnections.delete(connection.id);
 	}
 }
 
 connectionEvents.on('join', function (conn, password, playerName) {
 	if (!password || this.password === password) {
 		this.addPlayer(playerName, conn);
-		conn.send(['joinResponse', true, this.name, Array.from(this.playerNames), 
-					this.settings, Array.from(this.allItems), this.nextKey]);
+		conn.send('joinResponse', true, this.name, this.playerNames, 
+					this.settings, BoardItemJSON.getSimplifiedItems(), this.nextKey);
 	}
 	else {
-		conn.send(['joinResponse', false]);
+		conn.send('joinResponse', false);
 		conn.close();
 	}
 });

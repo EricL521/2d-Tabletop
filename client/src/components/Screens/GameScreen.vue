@@ -24,13 +24,13 @@ board.on("itemSelect", (key, item) => {
 const updateSelection = (e, key) => {
 	cancelEvent(e);
 	// if deselecting and parenting, then parent
-	// selecteditem is when you click without selecting anything previously
-	if (key == null && selectedItem.value) {
+	if (selectedItem.value && selectedItem.value.key != key) {
 		board.parentItem(selectedItem.value.key, parentingItem.value? parentingItem.value.key: null);
 		parentingItem.value = null;
 		parentingArea.value = 0;
 	}
 	board.selectItem(key);
+	// changes selected item in board.on("itemSelect")
 };
 
 const parentingItem = ref(null);
@@ -55,8 +55,7 @@ const addItem = (x, y, z, width, height, type, data, parent) => {
 		x, y, z, 
 		width, height,
 		type, data,
-		parent: parent? parent: null,
-		children: new Map()
+		parent: parent? parent: null
 	});
 };
 

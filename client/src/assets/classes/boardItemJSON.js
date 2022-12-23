@@ -1,5 +1,21 @@
+// also stores all instances of class
 export class BoardItemJSON {
-	constructor (key, playerName, x, y, z, width, height, type, data, parent, children) {
+	static items = new Map(); // key => item
+	static get(key) { return this.items.get(key); }
+	static set(key, item) { this.items.set(key, item); }
+	static delete(key) { this.items.delete(key); }
+	static has(key) { return this.items.has(key); }
+	// returns array of items
+	static getSimplifiedItems() {
+		const items = [];
+		for (const item of this.items.values())
+			items.push(item.simplified);
+		return items;
+	}
+
+	constructor ({key, playerName, x, y, z, width, height, type, data, parent, children}) {
+		BoardItemJSON.set(key, this);
+
 		this.selected = false;
 
 		this.key = key;
@@ -14,31 +30,50 @@ export class BoardItemJSON {
 		this.data = data;
 
 		this.parent = parent;
-		this.children = children? children: new Map();
+		if (BoardItemJSON.has(parent))
+			this.parent = BoardItemJSON.get(parent);
+		// children is a set of objects
+		this.children = children? children: new Set();
+		if (Array.isArray(children))
+			children.forEach(childKey => this.children.add(BoardItemJSON.get(childKey)));
 	}
 
+	// returns a simplified version of this item, which has no special classes
+	// also, parent and children are stored as keys instead of objects
+	get simplified() {
+		const item = structuredClone(this);
+		item.parent = item.parent? item.parent.key: null;
+		item.children = [];
+		for (const child of this.children)
+			item.children.push(child.key);
+		return item;
+	}
+	get isChild() { return this.parent? true: false; }
+
 	get absoluteX() {
-		const result =  this.x + (this.parent? this.parent.absoluteX: 0);
-		return result;
+		return this.x + (this.parent? this.parent.absoluteX: 0);
 	}
 	get absoluteY() {
 		return this.y + (this.parent? this.parent.absoluteY: 0);
 	}
 
 	// returns whther this item is a descendant of the item with the given key
-	isDescendantOf(parentItem) {
-		if (!parentItem || !this.parent)
+	isDescendantOf(item) {
+		if (!this.parent)
 			return false;
-		if (this.parent.key == parentItem.key)
+		if (item.key == this.parent.key)
 			return true;
-		return this.parent.isDescendantOf(parentItem);
+		const result = this.parent.isDescendantOf(item);
+		return result;
 	}
 	// i keep makign this typo
-	isDescendentOf(parentItem) {
-		return this.isDescendantOf(parentItem);
+	isDescendentOf(item) {
+		return this.isDescendantOf(item);
 	}
-	isAncestorOf(childItem) {
-		return childItem.isDescendantOf(this);
+	isAncestorOf(child) {
+		if (!child) // if childItem does not exist, then it is not a descendant
+			return false;
+		return child.isDescendantOf(this);
 	}
 
 	// returns percent area of this item covered by other item
@@ -75,39 +110,60 @@ export class BoardItemJSON {
 	// multiplies width and height by x and y respectively
 	// also updates children
 	resizeBy (x, y) {
-		for (const itemKeyPair of this.children) {
-			const item = itemKeyPair[1];
-			item.resizeBy(x, y);
+		for (const child of this.children) {
+			child.resizeBy(x, y);
 			// resize x and y values
-			item.moveTo(item.x * x, item.y * y);
+			child.moveTo(child.x * x, child.y * y);
 		}
 		
 		this.width *= x;
 		this.height *= y;
 	}
 
-	// calling these also automatically calls setParent and removeParent
-	addChild(child) {
-		this.children.set(child.key, child);
-		child.setParent(this);
-	}
-	removeChild(child) {
-		this.children.delete(child.key);
-		child.removeParent();
-	}
+	// update is if function was called to update current item to match other item
+	addChild(child, update) {
+		if (!update) {
+			if (child && child.parent && child.parent.key == this.key)
+				return; // don't add child if it is already a child of this
+			if (this && this.parent && this.parent.key == child.key)
+				return; // can't reverse parenting direction
+		}
 
-	setParent(parent) {
-		this.removeParent();
+		this.children.add(child);
+		if (!update)
+			child.setParent(this, true);
+	}
+	removeChild(child, update) {
+		this.children.delete(child);
+		if (!update)
+			child.removeParent(true);
+	}
+	setParent(parent, update) {
+		if (parent && parent.parent && parent.parent.key == this.key)
+			return; // can't reverse parenting direction
+		if (this && this.parent && this.parent.key == parent.key)
+			return; // don't set if already parent
+
+		if (parent)
+			this.removeParent(true);
 		if (!parent)
 			return;
+		
 		this.parent = parent;
 		// update position
 		this.x -= parent.absoluteX;
 		this.y -= parent.absoluteY;
+		
+		if (!update)
+			parent.addChild(this.key, true);
 	}
-	removeParent() {
+	removeParent(update) {
 		if (!this.parent)
 			return;
+
+		if (!update)
+			this.parent.removeChild(this.key, true);
+		
 		// update position
 		this.x += this.parent.absoluteX;
 		this.y += this.parent.absoluteY;

@@ -49,7 +49,6 @@
 			gameIdInput.value.focus();
 			return gameIdInput.value.required = true;
 		}
-
 		emit('updateData', {
 			"playerName": playerName.value, 
 			"gameId": gameId.value, 
@@ -106,7 +105,7 @@ input {
 }
 input:focus {
 	border: 2px solid #7280AC;
-	background-color: #BCE3B5;
+	background-color: #E6F4E2;
 }
 input:required {
 	border: 2px solid #C3423F;

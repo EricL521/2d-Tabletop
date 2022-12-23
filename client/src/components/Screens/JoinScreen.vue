@@ -7,11 +7,11 @@
 	const props = defineProps(['data']);
 	const emit = defineEmits(['changeScreen', 'updateData']);
 
-	const status = ref("Loading");
+	const status = ref("Connecting");
 
 	socket.emit('joinBoard', props.data.gameId, (hostPeerId) => {
 		const board = new BoardClient(socket, props.data.gameId, props.data.gamePassword, hostPeerId, props.data.playerName, peer);
-		board.on("joined", () => {
+		board.on("join", () => {
 			emit('updateData', {
 				"playerName": props.data.playerName,
 				"board": board,

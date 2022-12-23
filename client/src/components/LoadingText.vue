@@ -22,11 +22,11 @@ watch(() => props.text, (newText) => {
 		// randomize all characters
 		unfinishedChars.forEach((i) => {
 			// chance decreases as more characters finish
-			if (Math.random() * 2 < unfinishedChars.size / displayText.value.length)
+			if (!(Math.random() * 2 > Math.pow(unfinishedChars.size / displayText.value.length, 1/2)))
 				return; // chance of not changing
 			
 			// chance of just going to the correct value
-			if (i < newText.length && Math.random() > Math.pow(unfinishedChars.size / displayText.value.length, 1/3))
+			if (i < newText.length && Math.random() > Math.pow(unfinishedChars.size / displayText.value.length, 1/2))
 				displayText.value = displayText.value.substring(0, i) + newText[i] + displayText.value.substring(i + 1);
 			else // random character within new text
 				displayText.value = displayText.value.substring(0, i) + 
@@ -37,12 +37,12 @@ watch(() => props.text, (newText) => {
 		});
 		
 		const lengthDifference = newText.length - displayText.value.length;
-		// increasing chance of removing or adding character as more chars finish
-		if (lengthDifference > 0 && Math.random() > unfinishedChars.size / displayText.value.length) { // adding
+		// increasing chance of removing or adding character as more chars finish, and when length difference is greater
+		if (lengthDifference > 0 && Math.sqrt(lengthDifference) * Math.random() > unfinishedChars.size / displayText.value.length) { // adding
 			displayText.value += newText[Math.floor(Math.random() * newText.length)];
 			unfinishedChars.add(displayText.value.length - 1);
 		}
-		if (lengthDifference < 0 && Math.random() > unfinishedChars.size / displayText.value.length) { // removing
+		if (lengthDifference < 0 && Math.sqrt(-lengthDifference) * Math.random() > unfinishedChars.size / displayText.value.length) { // removing
 			displayText.value = displayText.value.substring(0, displayText.value.length - 1);
 			unfinishedChars.delete(displayText.value.length);
 		}
@@ -80,6 +80,7 @@ onUnmounted(() => {
 <style scoped>
 p {
 	display: inline-block;
+	margin: 0;
 	transition: all 0.5s ease;
 }
 span {

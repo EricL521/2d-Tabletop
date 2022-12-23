@@ -1,5 +1,11 @@
-const express = require('express')
-const path = require('path')
+// peerjs server
+const { PeerServer } = require('peer');
+const peerServer = PeerServer({ port: 9000, path: '/peerjs' });
+peerServer.on('connection', (client) => { console.log("peerjs connection"); });
+peerServer.on('disconnect', (client) => { console.log("peerjs disconnect"); });
+
+const express = require('express');
+const path = require('path');
 const app = express();
 const port = 3000;
 const http = require('http');
@@ -25,12 +31,11 @@ for (const file of eventFiles) {
 	socketEvents.set(socketEvent.name, socketEvent.function);
 }
 io.on('connection', (socket) => {
-	console.log('a user connected');
-	
 	socket.onAny((event, ...args) => {
 		try {
 			socketEvents.get(event)(socket, ...args);
 		} catch (error) {
+			console.log(event);
 			console.error(error);
 		}
 	});

@@ -1,4 +1,5 @@
 import { BoardItemJSON } from "./boardItemJSON";
+import { BoardConn } from "./boardConn";
 // base board class
 
 // these can be overrided in client and host
@@ -23,7 +24,7 @@ export class Board {
 		
 		this.selectedItemKey = null;
 		this.boardItems = new Map(); // structured order
-		this.allItems = new Map(); // unstructured, with all children just in the map
+		// all items are stored in boardItemJSON class
 		this.nextKey = 0; // overriden in boardClient
 		
 		this.name = name; // can be null
@@ -41,51 +42,72 @@ export class Board {
 	// peer.onconnection equals this
 	// however, it is called differently in host and client
 	onConnection(conn) {
+		console.log("processing connection");
 		this.emit("connUpdate", "Connecting");
-		
+		conn.on("open", () => {
+			this.emit("connUpdate", "Connected");
+
+			// custom conn which stringifies data before sending
+			const boardConn = new BoardConn(conn);
+			this.initializeBoardConn(boardConn);
+
+			this.onceConnection(boardConn);
+		});
+	}
+	// ran for a reroute through server
+	onSocketConnection(otherSocketId) {
+		console.log("processing socket connection");
+
+		this.emit("connUpdate", "Connected");
+
+		// custom conn which stringifies data before sending
+		const boardConn = new BoardConn(this.socket, this.id, otherSocketId);
+		this.initializeBoardConn(boardConn);
+
+		this.onceConnection(boardConn);
+	}
+	// adds listeners to boardConn
+	initializeBoardConn(boardConn) {
 		// on first connecting, conn will emit a name
 		// data is in this form: [eventName, restOfData]
-		conn.on('data', (data) => {
-			try {
-				// call specific event
-				if (this.constructor.connectionEvents.has(data[0]))
-					this.constructor.connectionEvents.get(data[0])
-					.bind(this)(conn, ...data.slice(1));
-				else if (Board.connectionEvents.has(data[0]))
-					Board.connectionEvents.get(data[0])
-					.bind(this)(conn, ...data.slice(1));
-				// call onany
-				else if (this.constructor.connectionEvents.onAny)
-					this.constructor.connectionEvents.onAny.call.bind(this)(data[0], conn, ...data.slice(1));
-				else if (Board.connectionEvents.onAny)
-					Board.connectionEvents.onAny.call.bind(this)(data[0], conn, ...data.slice(1));
-				else
-					console.log(`Unhandled Event: ${data[0]}`);
-			} catch (error) {
-				console.error(error, data);
-			}
-		});
+		boardConn.on('data', (data) => this.onData(boardConn, data));
 
-		conn.on('open', () => {
-			this.emit("connUpdate", "Connected");
-			this.onceConnection(conn);
-		});
-
-		conn.on('close', () => {
+		boardConn.on('close', () => {
 			this.emit("connUpdate", "Disconnected");
-			this.onceConnectionClose(conn);
+			this.onceConnectionClose(boardConn);
+			boardConn.delete();
 		});
 
-		conn.on('error', (error) => {
+		boardConn.on('error', (error) => {
 			this.emit("connUpdate", `Failed: ${error}`);
 		});
+	}
+	// data is an array [eventName, ...restOfData]
+	onData(boardConn, data) {
+		console.log(data);
+		try {
+			// call specific event
+			if (this.constructor.connectionEvents.has(data[0]))
+				this.constructor.connectionEvents.get(data[0])
+				.bind(this)(boardConn, ...data.slice(1));
+			else if (Board.connectionEvents.has(data[0]))
+				Board.connectionEvents.get(data[0])
+				.bind(this)(boardConn, ...data.slice(1));
+			// call onany
+			if (this.constructor.connectionEvents.onAny)
+				this.constructor.connectionEvents.onAny.call.bind(this)(data[0], boardConn, ...data.slice(1));
+			else if (Board.connectionEvents.onAny)
+				Board.connectionEvents.onAny.call.bind(this)(data[0], boardConn, ...data.slice(1));
+		} catch (error) {
+			console.error(error, data);
+		}
 	}
 	// optional
 	onceConnection() { }
 	onceConnectionClose() { }
 
 	getItem(key) {
-		return this.allItems.get(key);
+		return BoardItemJSON.get(key);
 	}
 	selectItem(key) {
 		if (key == this.selectedItemKey)
@@ -101,14 +123,16 @@ export class Board {
 		this.emit("itemSelect", key, newItem);
 	}
 	// should override next group of functions
+	// addItem returns item object
 	addItem(itemData) {
 		const key = this.nextKey ++;
-		const item = new BoardItemJSON(key, itemData.playerName? itemData.playerName: this.playerName, 
-									itemData.x, itemData.y, itemData.z, itemData.width, itemData.height, 
-									itemData.type, itemData.data, itemData.parent, itemData.children);
-		this.boardItems.set(key, item);
-		this.allItems.set(key, item);
+		itemData.key = key;
+		itemData.playerName = itemData.playerName? itemData.playerName: this.playerName;
+		const item = new BoardItemJSON(itemData);
+		if (!item.isChild)
+			this.boardItems.set(key, item);
 		this.emit("itemCreate", key);
+		return item;
 	}
 	moveItem(key, x, y) {
 		const item = this.getItem(key);
@@ -122,18 +146,11 @@ export class Board {
 	}
 	// sets the parent item of childkey to parentkey
 	parentItem(childKey, parentKey) {
-		const parent = this.getItem(parentKey);
 		const child = this.getItem(childKey);
-
-		if (child && child.parent && child.parent.key == parentKey)
-			return;
-		if (parent && parent.parent && parent.parent.key == childKey)
-			return; // can't reverse parenting direction
-		if (!this.boardItems.has(childKey)) // NOTE: boarditem is the ordered map
-			this.unparentItem(childKey); // reset childkey
+		const parent = this.getItem(parentKey);
+		this.unparentItem(childKey); // reset childkey
 		if (!parent)
 			return; // no parent
-		
 
 		this.boardItems.delete(childKey);
 		parent.addChild(child);
@@ -142,16 +159,19 @@ export class Board {
 	}
 	unparentItem(childKey) {
 		const child = this.getItem(childKey);
-		const parent = child.parent;
-		if (!parent)
-			return; // no parent
-		
-		parent.removeChild(child);
+		child.removeParent();
 		this.boardItems.set(childKey, child);
 
 		this.emit("itemUnparent", childKey);
 	}
 
+	addPlayer(name) {
+		this.playerNames.add(name);
+	}
+	removePlayer(name) {
+		this.playerNames.delete(name);
+	}
+	
 	// add an event listener
 	on (eventName, callback) {
 		if (!this.listeners.has(eventName))
@@ -167,12 +187,5 @@ export class Board {
 		if (this.listeners.has(eventName)) {
 			this.listeners.get(eventName).forEach(func => func(...data));
 		}
-	}
-
-	addPlayer(name) {
-		this.playerNames.add(name);
-	}
-	removePlayer(name) {
-		this.playerNames.delete(name);
 	}
 }
