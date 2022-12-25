@@ -124,30 +124,42 @@ export class BoardItemJSON {
 	addChild(child, update) {
 		if (!update) {
 			if (child && child.parent && child.parent.key == this.key)
-				return; // don't add child if it is already a child of this
+				return false; // don't add child if it is already a child of this
 			if (this && this.parent && this.parent.key == child.key)
-				return; // can't reverse parenting direction
+				return false; // can't reverse parenting direction
 		}
+
+		if (this.children.has(child))
+			return false;
 
 		this.children.add(child);
 		if (!update)
 			child.setParent(this, true);
+		
+		return true;
 	}
 	removeChild(child, update) {
+		if (!this.children.has(child))
+			return false;
 		this.children.delete(child);
 		if (!update)
 			child.removeParent(true);
+		
+		return true;
 	}
 	setParent(parent, update) {
 		if (parent && parent.parent && parent.parent.key == this.key)
-			return; // can't reverse parenting direction
+			return false; // can't reverse parenting direction
 		if (this && this.parent && this.parent.key == parent.key)
-			return; // don't set if already parent
+			return false; // don't set if already parent
+		
+		if (this.parent == parent)
+			return false;
 
 		if (parent)
 			this.removeParent(true);
-		if (!parent)
-			return;
+		else if (!parent)
+			return true;
 		
 		this.parent = parent;
 		// update position
@@ -156,10 +168,12 @@ export class BoardItemJSON {
 		
 		if (!update)
 			parent.addChild(this.key, true);
+		
+		return true;
 	}
 	removeParent(update) {
 		if (!this.parent)
-			return;
+			return false;
 
 		if (!update)
 			this.parent.removeChild(this.key, true);
@@ -168,6 +182,8 @@ export class BoardItemJSON {
 		this.x += this.parent.absoluteX;
 		this.y += this.parent.absoluteY;
 		this.parent = null;
+
+		return true;
 	}
 
 	select() {

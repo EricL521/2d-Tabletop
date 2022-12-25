@@ -15,7 +15,7 @@ const screen = ref("HomeScreen");
 const currentScreen = computed(() => screens[screen.value]);
 
 // used to transfer data between components
-const data = ref({});
+const data = ref({}, {deep: false});
 </script>
 
 <template>

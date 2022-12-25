@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import BoardItem from '../BoardItem.vue';
 const props = defineProps(['data']);
 const emit = defineEmits(['updateHeader', 'changeScreen', 'updateData']);
@@ -10,11 +10,15 @@ emit('updateHeader', true, `${board.name} - ${board.id}`);
 
 const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
 
-const items = ref(board.boardItems);
-window.items = items; // TEMPORARY FOR DEBUGGING REMOVE LATER _______--------------______-------------------________----------
+// NOTE: COMPUTED IS NEEDED TO FORCE THE UPDATE
+const updater = ref(0);
+const items = computed(() => {
+	updater.value; // force update when updater changes
+	console.log("updated");
+	return board.boardItems;
+});
 board.onAny(() => {
-	console.log("board update");
-	items.value = board.boardItems;
+	updater.value++;
 });
 
 const selectedItem = ref(null);
@@ -115,7 +119,7 @@ onMounted(() => {
 		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
 			<!-- For nonchildren only -->
 			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item"
-			@updateSelection="updateSelection" :selectedItem = "selectedItem"
+			@updateSelection="updateSelection" :selectedItem="selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
 			:x="item.x" :y="item.y" :z="item.z" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"

@@ -17,10 +17,10 @@ watch(() => props.parentingItem, (parentingItem) => {
 });
 watch(() => props.selectedItem, (selectedItem) => {
 	isSelected.value = selectedItem? (selectedItem.key === key): false;
+	if (!selectedItem || isSelected.value)
+		return;
 	childSelected.value = selectedItem? props.thisItem.isAncestorOf(selectedItem): false;
 
-	if (!selectedItem || (selectedItem.key === key))
-		return;
 	// watch for overlapping if different item
 	if (!props.thisItem.isDescendantOf(selectedItem))
 		onIntersect(key, selectedItem.percentAreaCoveredBy(props.thisItem));

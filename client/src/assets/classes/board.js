@@ -148,9 +148,8 @@ export class Board {
 	parentItem(childKey, parentKey) {
 		const child = this.getItem(childKey);
 		const parent = this.getItem(parentKey);
-		this.unparentItem(childKey); // reset childkey
 		if (!parent)
-			return; // no parent
+			return this.unparentItem(childKey); // no parent
 
 		this.boardItems.delete(childKey);
 		parent.addChild(child);
@@ -159,10 +158,11 @@ export class Board {
 	}
 	unparentItem(childKey) {
 		const child = this.getItem(childKey);
-		child.removeParent();
-		this.boardItems.set(childKey, child);
+		if (child.removeParent()) {
+			this.boardItems.set(childKey, child);
 
-		this.emit("itemUnparent", childKey);
+			this.emit("itemUnparent", childKey);
+		}
 	}
 
 	addPlayer(name) {
@@ -183,9 +183,8 @@ export class Board {
 	}
 	// call the event listeners
 	emit (eventName, ...data) {
-		this.onAnyFuncs.forEach(func => func(eventName, ...data));
-		if (this.listeners.has(eventName)) {
+		if (this.listeners.has(eventName))
 			this.listeners.get(eventName).forEach(func => func(...data));
-		}
+		this.onAnyFuncs.forEach(func => func(eventName, ...data));
 	}
 }
