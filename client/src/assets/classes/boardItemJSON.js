@@ -1,3 +1,5 @@
+import polygonClipping from 'polygon-clipping';
+
 // also stores all instances of class
 export class BoardItemJSON {
 	static items = new Map(); // key => item
@@ -12,8 +14,12 @@ export class BoardItemJSON {
 			items.push(item.simplified);
 		return items;
 	}
+	static unsimplifyItems() {
+		for (const item of this.items.values())
+			item.unsimplify();
+	}
 
-	constructor ({key, playerName, x, y, z, width, height, type, data, parent, children}) {
+	constructor ({key, playerName, x, y, z, width, height, rotation, type, data, parent, children}) {
 		BoardItemJSON.set(key, this);
 
 		this.selected = false;
@@ -25,19 +31,18 @@ export class BoardItemJSON {
 		this.z = z;
 		this.width = width;
 		this.height = height;
+		// in radians
+		this.rotation = Number.isFinite(rotation)? rotation: 0;
 
 		this.type = type;
 		this.data = data;
 
 		this.parent = parent;
-		if (BoardItemJSON.has(parent))
-			this.parent = BoardItemJSON.get(parent);
 		// children is a set of objects
 		this.children = children? children: new Set();
-		if (Array.isArray(children))
-			children.forEach(childKey => this.children.add(BoardItemJSON.get(childKey)));
 	}
 
+	
 	// returns a simplified version of this item, which has no special classes
 	// also, parent and children are stored as keys instead of objects
 	get simplified() {
@@ -48,7 +53,15 @@ export class BoardItemJSON {
 			item.children.push(child.key);
 		return item;
 	}
-	get isChild() { return this.parent? true: false; }
+	// unsimplifies this item, which replaces keys with the actual objects
+	unsimplify() {
+		this.parent = BoardItemJSON.get(this.parent);
+		this.children = new Set();
+		for (const childKey of this.children)
+			this.children.add(BoardItemJSON.get(childKey));
+	}
+
+	get isChild() { return this.parent || Number.isFinite(this.parent)? true: false; }
 
 	get absoluteX() {
 		return this.x + (this.parent? this.parent.absoluteX: 0);
@@ -61,10 +74,9 @@ export class BoardItemJSON {
 	isDescendantOf(item) {
 		if (!this.parent)
 			return false;
-		if (item.key == this.parent.key)
+		if (this.isChildOf(item))
 			return true;
-		const result = this.parent.isDescendantOf(item);
-		return result;
+		return this.parent.isDescendantOf(item);
 	}
 	// i keep makign this typo
 	isDescendentOf(item) {
@@ -75,24 +87,73 @@ export class BoardItemJSON {
 			return false;
 		return child.isDescendantOf(this);
 	}
+	isParentOf(child) {
+		// if child or child.parent does not exist, then it is not a child
+		if (!child || !child.parent)
+			return false;
+		return child.parent.key == this.key;
+	}
+	isChildOf(parent) {
+		return parent.isParentOf(this);
+	}
 
 	// returns percent area of this item covered by other item
 	percentAreaCoveredBy(item) {
+		console.log(this.key, item.key);
 		// created to only call absoluteX and absoluteY once
-		const otherItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height};
-		const thisItem = {x: this.absoluteX, y: this.absoluteY, width: this.width, height: this.height};
-		
-		// get lower of the 2 rightX values, and higher of the 2 leftX values
-		const lowerX = Math.min(thisItem.x + this.width, otherItem.x + otherItem.width);
-		const higherX = Math.max(thisItem.x, otherItem.x);
-		// do same for y
-		const lowerY = Math.min(thisItem.y + this.height, otherItem.y + otherItem.height);
-		const higherY = Math.max(thisItem.y, otherItem.y);
-		// if the lower is less than the higher, then the items do not overlap
-		if (lowerX < higherX || lowerY < higherY)
+		const otherItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height, rotation: item.rotation};
+		const thisItem = {x: this.absoluteX, y: this.absoluteY, width: this.width, height: this.height, rotation: this.rotation};
+		// caculate point of each item, taking rotation into account (rotation is around center of item and in radians)
+		const otherPoints = this.rotatePolygon([
+			[otherItem.x, otherItem.y], 
+			[otherItem.x + otherItem.width, otherItem.y], 
+			[otherItem.x + otherItem.width, otherItem.y + otherItem.height], 
+			[otherItem.x, otherItem.y + otherItem.height]], 
+			[otherItem.x + otherItem.width / 2, otherItem.y + otherItem.height / 2], 
+			otherItem.rotation
+		);
+		const thisPoints = this.rotatePolygon([
+			[thisItem.x, thisItem.y],
+			[thisItem.x + thisItem.width, thisItem.y],
+			[thisItem.x + thisItem.width, thisItem.y + thisItem.height],
+			[thisItem.x, thisItem.y + thisItem.height]],
+			[thisItem.x + thisItem.width / 2, thisItem.y + thisItem.height / 2],
+			thisItem.rotation
+		);
+		console.log(thisPoints);
+		// get poly of intersection
+		const intersectionPoly = polygonClipping.intersection([otherPoints], [thisPoints]);
+		// if no intersection, return 0
+		if (intersectionPoly.length == 0)
 			return 0;
-		
-		return (higherX - lowerX) * (higherY - lowerY) / (thisItem.width * thisItem.height);
+		// get area of intersection
+		return this.polygonArea(intersectionPoly[0][0]) / (thisItem.width * thisItem.height);
+	}
+	rotatePolygon(polygon, center, angle) { 
+		const points = [];
+		for (const point of polygon)
+			points.push(this.rotatePoint(point, center, angle));
+		return points;
+	}
+	// rotates point[x, y] clockwise around center by angle (in degrees)
+	rotatePoint(point, center, angle) {
+		// convert angle to radians
+		angle = angle * Math.PI / 180;
+		const x = Math.cos(angle) * (point[0] - center[0]) - Math.sin(angle) * (point[1] - center[1]) + center[0];
+		const y = Math.sin(angle) * (point[0] - center[0]) + Math.cos(angle) * (point[1] - center[1]) + center[1];
+		return [x, y];
+	}
+	polygonArea (points) {
+		let area = 0;
+
+		for (let i = 0; i < points.length; i++) {
+			let j = (i + 1) % points.length;
+			let [x1, y1] = points[i];
+			let [x2, y2] = points[j];
+			area += x1 * y2 - x2 * y1;
+		}
+
+		return Math.abs(area / 2);
 	}
 
 	moveTo (x, y, z) {
@@ -118,6 +179,9 @@ export class BoardItemJSON {
 		
 		this.width *= x;
 		this.height *= y;
+	}
+	rotateTo (rotation) {
+		this.rotation = rotation;
 	}
 
 	// update is if function was called to update current item to match other item
@@ -167,7 +231,7 @@ export class BoardItemJSON {
 		this.y -= parent.absoluteY;
 		
 		if (!update)
-			parent.addChild(this.key, true);
+			parent.addChild(this, true);
 		
 		return true;
 	}
@@ -176,7 +240,7 @@ export class BoardItemJSON {
 			return false;
 
 		if (!update)
-			this.parent.removeChild(this.key, true);
+			this.parent.removeChild(this, true);
 		
 		// update position
 		this.x += this.parent.absoluteX;

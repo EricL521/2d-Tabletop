@@ -17,6 +17,7 @@ const items = computed(() => {
 	console.log("updated");
 	return board.boardItems;
 });
+window.items = items;
 board.onAny(() => {
 	updater.value++;
 });
@@ -29,7 +30,7 @@ const updateSelection = (e, key) => {
 	cancelEvent(e);
 	// if deselecting and parenting, then parent
 	if (selectedItem.value && selectedItem.value.key != key) {
-		board.parentItem(selectedItem.value.key, parentingItem.value? parentingItem.value.key: null);
+		board.parentItem(selectedItem.value, parentingItem.value);
 		parentingItem.value = null;
 		parentingArea.value = 0;
 	}
@@ -124,11 +125,13 @@ onMounted(() => {
 			
 			:x="item.x" :y="item.y" :z="item.z" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
 			@finishMove="(key, x, y, z) => board.moveItem(key, x, y, z)" 
-			@move="(x, y, z) => {item.moveTo(x, y, z);}"
+			@move="(x, y, z) => item.moveTo(x, y, z)"
 			
 			:width="item.width" :height="item.height" 
 			@finishResize="(key, width, height) => board.resizeItem(key, width, height)"
-			@resize="(width, height) => {item.resizeTo(width, height);}"
+			@resize="(width, height) => item.resizeTo(width, height)"
+
+			:rotation="item.rotation" @rotate="(rotation) => item.rotateTo(rotation)"
 			
 			:type="item.type" :data="item.data"
 			:children="item.children">

@@ -1,10 +1,10 @@
 <script setup>
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
-import { resizeElement, dragElement } from './BoardItemHelper.js';
+import { resizeElement, dragElement, rotateElement } from './BoardItemHelper.js';
 
-const emit = defineEmits(['updateSelection', 'updateIntersection', 'move', 'finishMove', 'resize', 'finishResize']);
+const emit = defineEmits(['updateSelection', 'updateIntersection', 'move', 'finishMove', 'resize', 'finishResize', 'rotate', 'finishRotate']);
 const props = defineProps(['selectedItem', 'parentingItem', 'thisItem', 'x', 'y', 'z', 'absoluteX', 'absoluteY',
-							'width', 'height', 'type', 'data', 'children', 'isChild', 'parent']);
+							'width', 'height', 'rotation', 'type', 'data', 'children', 'isChild', 'parent']);
 const key = getCurrentInstance().vnode.key;
 const isSelected = ref(false);
 // if child is selected, move parent to top
@@ -17,12 +17,13 @@ watch(() => props.parentingItem, (parentingItem) => {
 });
 watch(() => props.selectedItem, (selectedItem) => {
 	isSelected.value = selectedItem? (selectedItem.key === key): false;
+	childSelected.value = props.thisItem.isAncestorOf(selectedItem);
 	if (!selectedItem || isSelected.value)
 		return;
-	childSelected.value = selectedItem? props.thisItem.isAncestorOf(selectedItem): false;
 
-	// watch for overlapping if different item
-	if (!props.thisItem.isDescendantOf(selectedItem))
+	// watch for overlapping if items not related at all
+	if ((props.thisItem.isParentOf(selectedItem) || !props.thisItem.isAncestorOf(selectedItem))
+		&& !props.thisItem.isDescendantOf(selectedItem))
 		onIntersect(key, selectedItem.percentAreaCoveredBy(props.thisItem));
 }, {deep: true});
 const onIntersect = (itemKey, areaPercent) => {
@@ -40,6 +41,9 @@ const sizeStyle = computed(() => {return {
 	width: props.width + 'px',
 	height: props.height + 'px'
 }});
+const rotationStyle = computed(() => {return {
+	transform: 'rotate(' + props.rotation + 'deg)'
+}});
 
 const cursorType = ref("pointer");
 const cursorStyle = computed(() => {return {cursor: cursorType.value}});
@@ -53,6 +57,7 @@ watch(isSelected, () => {
 // outline cursor
 const outline = ref(null);
 const resizeDirection = ref([0, 0]); // x, y
+// also turns on cursor events
 const outlineMouseStyle = computed(() => {
 	let cursorValue = "";
 	if (resizeDirection.value[1] !== 0)
@@ -80,10 +85,12 @@ const updateResizeDirection = (e) => {
 		direction[0] = (relativeX > 0)? 1: -1;
 	resizeDirection.value = direction;
 };
-// echoes outlinecursor if resizing, otherwise is nul
+// copies outlinecursor if resizing, or crosshair if rotating otherwise is null
 const backgroundCursor = computed(() => {
 	if (resizing.value)
 		return outlineMouseStyle.value;
+	if (rotating.value)
+		return {cursor: "crosshair"};
 	return null;
 });
 
@@ -103,26 +110,38 @@ const finishResize = (itemKey, width, height) => {
 	else
 		emit('finishResize', key, props.width, props.height);
 };
+const finishRotate = (itemKey, rotation) => {
+	if (itemKey)
+		emit('finishRotate', itemKey, rotation);
+	else
+		emit('finishRotate', key, props.rotation);
+}; // -------_______----------- TODO: add listener to gamescreen
 
 const resizing = ref(false);
+const rotater = ref(null);
+const rotating = ref(false);
+const currentRotation = computed(() => props.rotation);
 const boardItem = ref(null);
 // outline defined above
 onMounted(() => {
 	dragElement(boardItem.value, isSelected, emit, finishMove, cursorType);
 	resizeElement(outline.value, boardItem.value, isSelected, emit, finishMove, finishResize, resizeDirection, resizing);
+	rotateElement(rotater.value, boardItem.value, isSelected, emit, finishRotate, currentRotation, rotating);
 });
 </script>
 
 <template>
-	<div :id="key" class="board-item" :class="{child: props.isChild, childSelected: childSelected, selected: isSelected, parenting: isParenting}"
-		:style="[positionStyle, cursorStyle, sizeStyle]" 
-		@click="(e) => updateSelection(e, key)" ref="boardItem">
+	<div ref="boardItem" :id="key" class="board-item" :class="{child: props.isChild, childSelected: childSelected, selected: isSelected, parenting: isParenting}"
+		:style="[positionStyle, sizeStyle]">
+	<div class="rotation" :style="[cursorStyle, rotationStyle]" @click="(e) => updateSelection(e, key)">
 		<div ref="outline" id="outline" :class="{hidden: !isSelected}" :style="outlineMouseStyle" @mousemove="updateResizeDirection">
-			<div class="left"></div>
-			<div class="right"></div>
-			<div class="top"></div>
-			<div class="bottom"></div>
+			<div id="left" :class="{'pointer-events': isSelected}"></div>
+			<div id="right" :class="{'pointer-events': isSelected}"></div>
+			<div id="top" :class="{'pointer-events': isSelected}"></div>
+			<div id="bottom" :class="{'pointer-events': isSelected}"></div>
 		</div>
+		<div ref="rotater" id="rotater" :class="{hidden: !isSelected, 'pointer-events': isSelected}" @mousedown="rotateStart"></div>
+
 		<div id="background" v-if="isSelected && backgroundCursor" :style="backgroundCursor"></div>
 		<div id="children">
 			<!-- IF SOMETHING IS WORKING FOR THE PARENT, BUT NOT THE CHILDREN THE PROBLEM IS HERE -->
@@ -131,11 +150,14 @@ onMounted(() => {
 			@updateIntersection="onIntersect" :parentingItem="props.parentingItem"
 			
 			:x="item.x" :y="item.y" :z="item.z" @finishMove="finishMove" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
-			@move="(x, y, z) => {item.x = x? x: item.x; item.y = y? y: item.y; item.z = z? z: item.z;}"
+			@move="(x, y, z) => item.moveTo(x, y, z)"
 			
 			:width="item.width" :height="item.height" 
 			@finishResize="finishResize"
-			@resize="(width, height) => {item.width = width? width: item.width; item.height = height? height: item.height;}"
+			@resize="(width, height) => item.resizeTo(width, height)"
+
+			:rotation="item.rotation" @rotate="(rotation) => item.rotateTo(rotation)"
+			@finishRotate="finishRotate"
 			
 			:type="item.type" :data="item.data"
 			:children="item.children" :isChild="true" :parent="item.parent">
@@ -146,6 +168,7 @@ onMounted(() => {
 			<img class="item" v-if="props.type == 'img'" :src="props.data.dataURL">
 			<p v-else>Backup thing</p>
 		</div>
+	</div>
 	</div>
 </template>
 
@@ -162,16 +185,20 @@ div {
 	height: 100%;
 }
 
+.rotation {
+	pointer-events: all;
+}
 .board-item {
 	position: absolute;
 	transition: all 0.5s ease, z-index 0s ease 0.25s;
+	pointer-events: none;
 }
 .board-item.child {
 	transition: inherit;
 }
 /* Parenting has to appear first, to have lower priority */
 .board-item.parenting {
-	box-shadow: #25171a 0.4em 0.4em 0.8em;
+	filter: drop-shadow(0.1em 0.1em 0.25em #25171a);
 	transform: translate(-0.3em, -0.3em);
 	z-index: 9999 !important; 
 }
@@ -183,7 +210,7 @@ div {
 }
 .board-item.selected {
 	opacity: 0.75;
-	box-shadow: #25171a 0.4em 0.4em 0.8em;
+	filter: drop-shadow(0.1em 0.1em 0.25em #25171a);
 	transform: translate(-0.3em, -0.3em);
 	z-index: 10000 !important; 
 }
@@ -191,6 +218,9 @@ div {
 	transform: translate(0, 0);
 }
 
+.pointer-events {
+	pointer-events: all;
+}
 #outline {
 	position: absolute;
 	left: -0.3em;
@@ -200,40 +230,59 @@ div {
 	z-index: 10;
 	pointer-events: none;
 }
+#outline.hidden {
+	opacity: 0;
+}
 #outline div {
 	position: absolute;
-	pointer-events: all;
 	background-color: #727DAC;
 }
-#outline .left {
+#outline #left {
 	position: absolute;
 	left: 0;
 	width: 0.3em;
 	top: 0;
 	height: 100%;
 }
-#outline .right {
+#outline #right {
 	position: absolute;
 	right: 0;
 	width: 0.3em;
 	top: 0;
 	height: 100%;
 }
-#outline .top {
+#outline #top {
 	position: absolute;
 	left: 0;
 	width: 100%;
 	top: 0;
 	height: 0.3em;
 }
-#outline .bottom {
+#outline #bottom {
 	position: absolute;
 	left: 0;
 	width: 100%;
 	bottom: 0;
 	height: 0.3em;
 }
-#outline.hidden {
+
+#rotater {
+	position: absolute;
+	right: -2em;
+	bottom: -2em;
+	width: 1em;
+	height: 1em;
+	border-radius: 50%;
+	border: 0.25em solid #25171A;
+	z-index: 10;
+	pointer-events: all;
+	cursor: crosshair;
+	background-color: #727DAC;
+}
+#rotater.hidden {
+	right: -0.5em;
+	bottom: -0.5em;
+	transform: scale(0);
 	opacity: 0;
 	pointer-events: none;
 }

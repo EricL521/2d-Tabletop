@@ -145,23 +145,22 @@ export class Board {
 		this.emit("itemResize", key);
 	}
 	// sets the parent item of childkey to parentkey
-	parentItem(childKey, parentKey) {
-		const child = this.getItem(childKey);
-		const parent = this.getItem(parentKey);
+	parentItem(child, parent) {
 		if (!parent)
-			return this.unparentItem(childKey); // no parent
+			return this.unparentItem(child); // no parent
+		else if (child.isChild)
+			this.unparentItem(child); // unparent child
 
-		this.boardItems.delete(childKey);
+		this.boardItems.delete(child.key);
 		parent.addChild(child);
 
-		this.emit("itemParent", childKey, parentKey);
+		this.emit("itemParent", child.key, parent.key);
 	}
-	unparentItem(childKey) {
-		const child = this.getItem(childKey);
+	unparentItem(child) {
 		if (child.removeParent()) {
-			this.boardItems.set(childKey, child);
+			this.boardItems.set(child.key, child);
 
-			this.emit("itemUnparent", childKey);
+			this.emit("itemUnparent", child.key);
 		}
 	}
 

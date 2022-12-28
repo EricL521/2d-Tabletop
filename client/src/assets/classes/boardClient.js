@@ -1,5 +1,6 @@
 // code for the host of the game
 import { Board } from "./board";
+import { BoardItemJSON } from "./boardItemJSON";
 
 const connectionEvents = new Map();
 connectionEvents.on = connectionEvents.set;
@@ -22,6 +23,7 @@ export class BoardClient extends Board {
 	// takes in array of items creates them, and also creats this.boardItems (structured list) too
 	parseItems(items) {
 		items.forEach(item => this.addItem(item, true));
+		BoardItemJSON.unsimplifyItems();
 	}
 
 	// overrided to add rerouting through server if failed to connect through webrtc
