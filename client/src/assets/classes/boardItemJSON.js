@@ -19,6 +19,7 @@ export class BoardItemJSON {
 			item.unsimplify();
 	}
 
+	// x and y are the center of the item
 	constructor ({key, playerName, x, y, z, width, height, rotation, type, data, parent, children}) {
 		BoardItemJSON.set(key, this);
 
@@ -69,6 +70,9 @@ export class BoardItemJSON {
 	get absoluteY() {
 		return this.y + (this.parent? this.parent.absoluteY: 0);
 	}
+	get absoluteRotation() {
+		return this.rotation + (this.parent? this.parent.absoluteRotation: 0);
+	}
 
 	// returns whther this item is a descendant of the item with the given key
 	isDescendantOf(item) {
@@ -99,28 +103,26 @@ export class BoardItemJSON {
 
 	// returns percent area of this item covered by other item
 	percentAreaCoveredBy(item) {
-		console.log(this.key, item.key);
 		// created to only call absoluteX and absoluteY once
-		const otherItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height, rotation: item.rotation};
-		const thisItem = {x: this.absoluteX, y: this.absoluteY, width: this.width, height: this.height, rotation: this.rotation};
+		const otherItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height, rotation: item.absoluteRotation};
+		const thisItem = {x: this.absoluteX, y: this.absoluteY, width: this.width, height: this.height, rotation: this.absoluteRotation};
 		// caculate point of each item, taking rotation into account (rotation is around center of item and in radians)
 		const otherPoints = this.rotatePolygon([
+			[otherItem.x - otherItem.width/2, otherItem.y - otherItem.height/2], 
+			[otherItem.x + otherItem.width/2, otherItem.y - otherItem.height/2], 
+			[otherItem.x + otherItem.width/2, otherItem.y + otherItem.height/2], 
+			[otherItem.x - otherItem.width/2, otherItem.y + otherItem.height/2]], 
 			[otherItem.x, otherItem.y], 
-			[otherItem.x + otherItem.width, otherItem.y], 
-			[otherItem.x + otherItem.width, otherItem.y + otherItem.height], 
-			[otherItem.x, otherItem.y + otherItem.height]], 
-			[otherItem.x + otherItem.width / 2, otherItem.y + otherItem.height / 2], 
 			otherItem.rotation
 		);
 		const thisPoints = this.rotatePolygon([
+			[thisItem.x - thisItem.width/2, thisItem.y - thisItem.height/2],
+			[thisItem.x + thisItem.width/2, thisItem.y - thisItem.height/2],
+			[thisItem.x + thisItem.width/2, thisItem.y + thisItem.height/2],
+			[thisItem.x - thisItem.width/2, thisItem.y + thisItem.height/2]],
 			[thisItem.x, thisItem.y],
-			[thisItem.x + thisItem.width, thisItem.y],
-			[thisItem.x + thisItem.width, thisItem.y + thisItem.height],
-			[thisItem.x, thisItem.y + thisItem.height]],
-			[thisItem.x + thisItem.width / 2, thisItem.y + thisItem.height / 2],
 			thisItem.rotation
 		);
-		console.log(thisPoints);
 		// get poly of intersection
 		const intersectionPoly = polygonClipping.intersection([otherPoints], [thisPoints]);
 		// if no intersection, return 0
@@ -138,6 +140,7 @@ export class BoardItemJSON {
 	// rotates point[x, y] clockwise around center by angle (in degrees)
 	rotatePoint(point, center, angle) {
 		// convert angle to radians
+		// It is not negated because of a double negative - y axes is fliped in html, and css rotation is clockwise
 		angle = angle * Math.PI / 180;
 		const x = Math.cos(angle) * (point[0] - center[0]) - Math.sin(angle) * (point[1] - center[1]) + center[0];
 		const y = Math.sin(angle) * (point[0] - center[0]) + Math.cos(angle) * (point[1] - center[1]) + center[1];
@@ -229,6 +232,10 @@ export class BoardItemJSON {
 		// update position
 		this.x -= parent.absoluteX;
 		this.y -= parent.absoluteY;
+		// correct for rotation
+		// NOTE: you need to rotate centers around each other, not corners
+		[this.x, this.y] = this.rotatePoint([this.x, this.y], [0, 0], -parent.absoluteRotation);
+		this.rotation -= parent.absoluteRotation;
 		
 		if (!update)
 			parent.addChild(this, true);
@@ -242,6 +249,9 @@ export class BoardItemJSON {
 		if (!update)
 			this.parent.removeChild(this, true);
 		
+		// correct for rotation
+		[this.x, this.y] = this.rotatePoint([this.x, this.y], [0, 0], this.parent.absoluteRotation);
+		this.rotation += this.parent.absoluteRotation;
 		// update position
 		this.x += this.parent.absoluteX;
 		this.y += this.parent.absoluteY;

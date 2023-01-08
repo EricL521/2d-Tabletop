@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "polygon-clipping": "^0.15.3",
-    "vue": "^3.2.38"
+    "vue": "^3.2.38",
+    "vue3-moveable": "^0.17.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^3.0.3",

@@ -1,9 +1,9 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
-import { resizeElement, dragElement, rotateElement } from './BoardItemHelper.js';
+import { computed, getCurrentInstance, ref, watch } from 'vue';
+import Moveable from "vue3-moveable";
 
 const emit = defineEmits(['updateSelection', 'updateIntersection', 'move', 'finishMove', 'resize', 'finishResize', 'rotate', 'finishRotate']);
-const props = defineProps(['selectedItem', 'parentingItem', 'thisItem', 'x', 'y', 'z', 'absoluteX', 'absoluteY',
+const props = defineProps(['parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'x', 'y', 'z', 'absoluteX', 'absoluteY',
 							'width', 'height', 'rotation', 'type', 'data', 'children', 'isChild', 'parent']);
 const key = getCurrentInstance().vnode.key;
 const isSelected = ref(false);
@@ -30,19 +30,42 @@ const onIntersect = (itemKey, areaPercent) => {
 	emit('updateIntersection', itemKey, areaPercent);
 };
 
+// store a reactive copy of each of the transforms, so that we can update some of them without updating others
+const position = ref([props.x, props.y]);
+watch([() => props.x, () => props.y], ([x, y]) => {
+	if (!dragging.value) {
+		position.value = [x, y];
+		localPosition = [x, y];
+	}
+});
+const size = ref([props.width, props.height]);
+watch([() => props.width, () => props.height], ([width, height]) => {
+	if (!resizing.value) {
+		size.value = [width, height]; 
+		localResize = [width, height];
+	}
+});
+const rotation = ref(props.rotation);
+watch(() => props.rotation, (newRotation) => {
+	if (!rotating.value) {
+		rotation.value = newRotation; 
+		localRotation = newRotation;
+	}
+});
+// x and y are the center of the item
 const positionStyle = computed(() => {
 	return {
-		left: props.x + 'px',
-		top: props.y + 'px',
+		left: position.value[0] - size.value[0]/2 + 'px',
+		top: position.value[1] - size.value[1]/2 + 'px',
 		zIndex: props.z
 	};
 });
 const sizeStyle = computed(() => {return {
-	width: props.width + 'px',
-	height: props.height + 'px'
+	width: size.value[0] + 'px',
+	height: size.value[1] + 'px'
 }});
 const rotationStyle = computed(() => {return {
-	transform: 'rotate(' + props.rotation + 'deg)'
+	transform: 'rotate(' + rotation.value + 'deg)'
 }});
 
 const cursorType = ref("pointer");
@@ -54,102 +77,96 @@ watch(isSelected, () => {
 		cursorType.value = "pointer";
 });
 
-// outline cursor
-const outline = ref(null);
-const resizeDirection = ref([0, 0]); // x, y
-// also turns on cursor events
-const outlineMouseStyle = computed(() => {
-	let cursorValue = "";
-	if (resizeDirection.value[1] !== 0)
-		cursorValue += (resizeDirection.value[0] > 0)? "n": "s";
-	if (resizeDirection.value[0] !== 0)
-		cursorValue += (resizeDirection.value[1] > 0)? "w": "e";
-	cursorValue += "-resize";
-	return {
-		cursor: cursorValue
-	};
-});
-const cornerDistance = 15; // px
-const updateResizeDirection = (e) => {
-	if (resizing.value || !isSelected.value)
-		return; // don't update cursor while resizing or when not selected
-
-	const outlineBox = outline.value.getBoundingClientRect();
-	// ± 1 from center
-	const relativeX = e.clientX - outlineBox.x - outlineBox.width / 2;
-	const relativeY = e.clientY - outlineBox.y - outlineBox.height / 2;
-	let direction = [0, 0];
-	if (Math.abs(relativeY) > outline.value.offsetHeight / 2 - cornerDistance)
-		direction[1] = (relativeY > 0)? 1: -1;
-	if (Math.abs(relativeX) > outline.value.offsetWidth / 2 - cornerDistance)
-		direction[0] = (relativeX > 0)? 1: -1;
-	resizeDirection.value = direction;
-};
-// copies outlinecursor if resizing, or crosshair if rotating otherwise is null
-const backgroundCursor = computed(() => {
-	if (resizing.value)
-		return outlineMouseStyle.value;
-	if (rotating.value)
-		return {cursor: "crosshair"};
-	return null;
-});
-
 const updateSelection = (e, key) => {
 	// event is cancelled in gamescren
-	emit('updateSelection', e, key);
+	// emit('updateSelection', e, key);
 };
-const finishMove = (itemKey, x, y, z) => {
-	if (itemKey)
+const finishDrag = (itemKey, x, y, z) => {
+	if (itemKey != null)
 		emit('finishMove', itemKey, x, y, z);
 	else
 		emit('finishMove', key, props.x, props.y, props.z);
 };
 const finishResize = (itemKey, width, height) => {
-	if (itemKey)
+	if (itemKey != null)
 		emit('finishResize', itemKey, width, height);
 	else
 		emit('finishResize', key, props.width, props.height);
 };
 const finishRotate = (itemKey, rotation) => {
-	if (itemKey)
+	if (itemKey != null)
 		emit('finishRotate', itemKey, rotation);
 	else
 		emit('finishRotate', key, props.rotation);
 }; // -------_______----------- TODO: add listener to gamescreen
 
-const resizing = ref(false);
-const rotater = ref(null);
-const rotating = ref(false);
-const currentRotation = computed(() => props.rotation);
+// storing whether the item is being dragged, resized, or rotated, so it won't update if someone else is doing it
+const moving = computed(() => dragging.value || resizing.value || rotating.value);
+const dragging = ref(false); let localPosition = [props.x, props.y];
+const resizing = ref(false); let localResize = [props.width, props.height];
+// eslint-disable-next-line vue/no-setup-props-destructure
+const rotating = ref(false); let localRotation = props.rotation;
+const dragStart = () => dragging.value = true;
+const resizeStart = ({setOrigin, dragStart}) => {
+	resizing.value = true;
+	setOrigin(['%', '%']);
+	dragStart && dragStart.set([position.value[0] - size.value[0]/2, position.value[1] - size.value[1]/2]);
+};
+const rotateStart = (e) => {
+	rotating.value = true;
+	e.set(localRotation);
+};
+
+const move = ({left, top}) => {
+	localPosition = [left + localResize[0]/2, top + localResize[1]/2];
+	boardItem.value.style.left = left + 'px';
+	boardItem.value.style.top = top + 'px';
+};
+const resize = ({width, height, drag}) => {
+	localResize = [width, height];
+	boardItem.value.style.width = width + 'px';
+	boardItem.value.style.height = height + 'px';
+	if (drag.beforeTranslate)
+		move({left: drag.beforeTranslate[0], top: drag.beforeTranslate[1]});
+};
+const rotate = ({beforeRotate}) => {
+	localRotation = beforeRotate;
+	boardItem.value.style.transform = 'rotate(' + (beforeRotate) + 'deg)';
+};
+
+const end = () => {
+	[dragging, resizing, rotating].forEach(ref => ref.value = false);
+};
+const dragEnd = () => {
+	end();
+	finishDrag(key, localPosition[0], localPosition[1], props.z);
+};
+const resizeEnd = () => {
+	end();
+	finishDrag(key, localPosition[0], localPosition[1]);
+	finishResize(key, localResize[0], localResize[1]);
+};
+const rotateEnd = () => {
+	end();
+	finishRotate(key, localRotation);
+};
+
 const boardItem = ref(null);
-// outline defined above
-onMounted(() => {
-	dragElement(boardItem.value, isSelected, emit, finishMove, cursorType);
-	resizeElement(outline.value, boardItem.value, isSelected, emit, finishMove, finishResize, resizeDirection, resizing);
-	rotateElement(rotater.value, boardItem.value, isSelected, emit, finishRotate, currentRotation, rotating);
-});
+const childrenDiv = ref(null);
 </script>
 
 <template>
-	<div ref="boardItem" :id="key" class="board-item" :class="{child: props.isChild, childSelected: childSelected, selected: isSelected, parenting: isParenting}"
-		:style="[positionStyle, sizeStyle]">
-	<div class="rotation" :style="[cursorStyle, rotationStyle]" @click="(e) => updateSelection(e, key)">
-		<div ref="outline" id="outline" :class="{hidden: !isSelected}" :style="outlineMouseStyle" @mousemove="updateResizeDirection">
-			<div id="left" :class="{'pointer-events': isSelected}"></div>
-			<div id="right" :class="{'pointer-events': isSelected}"></div>
-			<div id="top" :class="{'pointer-events': isSelected}"></div>
-			<div id="bottom" :class="{'pointer-events': isSelected}"></div>
-		</div>
-		<div ref="rotater" id="rotater" :class="{hidden: !isSelected, 'pointer-events': isSelected}" @mousedown="rotateStart"></div>
-
-		<div id="background" v-if="isSelected && backgroundCursor" :style="backgroundCursor"></div>
-		<div id="children">
+	<div ref="boardItem" :id="key" class="board-item" 
+		:class="{child: props.isChild, childSelected: childSelected, selected: isSelected, parenting: isParenting, 'no-transition': moving}"
+		:style="[positionStyle, sizeStyle, rotationStyle, cursorStyle]"
+		@click="(e) => updateSelection(e, key)">
+		<div ref="childrenDiv" id="children">
 			<!-- IF SOMETHING IS WORKING FOR THE PARENT, BUT NOT THE CHILDREN THE PROBLEM IS HERE -->
-			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item"
+			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item" :parentElement="childrenDiv"
 			@updateSelection="updateSelection" :selectedItem = "props.selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="props.parentingItem"
 			
-			:x="item.x" :y="item.y" :z="item.z" @finishMove="finishMove" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
+			:x="item.x" :y="item.y" :z="item.z" @finishMove="finishDrag" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
 			@move="(x, y, z) => item.moveTo(x, y, z)"
 			
 			:width="item.width" :height="item.height" 
@@ -169,7 +186,14 @@ onMounted(() => {
 			<p v-else>Backup thing</p>
 		</div>
 	</div>
-	</div>
+
+	<Moveable
+		:target="boardItem" :container="props.parentElement"
+		:draggable="true" :resizable="true" :rotatable="true" :pinchable="true"
+		@drag="move" @resize="resize" @rotate="rotate" 
+		@dragStart="dragStart" @resizeStart="resizeStart" @rotateStart="rotateStart"
+		@dragEnd="dragEnd" @resizeEnd="resizeEnd" @rotateEnd="rotateEnd"
+	/>
 </template>
 
 <style scoped>
@@ -178,20 +202,20 @@ onMounted(() => {
 	user-select: none;
 	transition: inherit;
 }
-div {
+.board-item div {
 	position: absolute;
 	display: block;
 	width: 100%;
 	height: 100%;
 }
-
-.rotation {
-	pointer-events: all;
+.no-transition {
+	transition: none !important;
 }
+
 .board-item {
 	position: absolute;
 	transition: all 0.5s ease, z-index 0s ease 0.25s;
-	pointer-events: none;
+	pointer-events: all;
 }
 .board-item.child {
 	transition: inherit;
@@ -203,6 +227,7 @@ div {
 	z-index: 9999 !important; 
 }
 .board-item.parenting.child {
+	filter: none;
 	transform: translate(0, 0);
 }
 .board-item.childSelected {
@@ -215,86 +240,10 @@ div {
 	z-index: 10000 !important; 
 }
 .board-item.selected.child {
+	filter: none;
 	transform: translate(0, 0);
 }
 
-.pointer-events {
-	pointer-events: all;
-}
-#outline {
-	position: absolute;
-	left: -0.3em;
-	top: -0.3em;
-	width: calc(100% + 0.6em);
-	height: calc(100% + 0.6em);
-	z-index: 10;
-	pointer-events: none;
-}
-#outline.hidden {
-	opacity: 0;
-}
-#outline div {
-	position: absolute;
-	background-color: #727DAC;
-}
-#outline #left {
-	position: absolute;
-	left: 0;
-	width: 0.3em;
-	top: 0;
-	height: 100%;
-}
-#outline #right {
-	position: absolute;
-	right: 0;
-	width: 0.3em;
-	top: 0;
-	height: 100%;
-}
-#outline #top {
-	position: absolute;
-	left: 0;
-	width: 100%;
-	top: 0;
-	height: 0.3em;
-}
-#outline #bottom {
-	position: absolute;
-	left: 0;
-	width: 100%;
-	bottom: 0;
-	height: 0.3em;
-}
-
-#rotater {
-	position: absolute;
-	right: -2em;
-	bottom: -2em;
-	width: 1em;
-	height: 1em;
-	border-radius: 50%;
-	border: 0.25em solid #25171A;
-	z-index: 10;
-	pointer-events: all;
-	cursor: crosshair;
-	background-color: #727DAC;
-}
-#rotater.hidden {
-	right: -0.5em;
-	bottom: -0.5em;
-	transform: scale(0);
-	opacity: 0;
-	pointer-events: none;
-}
-
-#background {
-	position: fixed;
-	width: 300vw;
-	height: 300vh;
-	left: -150vw;
-	top: -150vh;
-	z-index: -10;
-}
 .item{
 	width: 100%;
 	height: 100%;
@@ -309,6 +258,6 @@ div {
 }
 
 img {
-	image-rendering: pixelated;
+	image-rendering: auto;
 }
 </style>

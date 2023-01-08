@@ -1,188 +1,149 @@
-// sets up element for rotating
-// rotation is current rotation (in radians)
-// written by me!!
-export const rotateElement = (rotaterElmnt, rotatedElmnt, selected, emit, finishRotate, currentRotation, rotating) => {
-	rotaterElmnt.onmousedown = rotateMouseDown;
-	let startingRotation = 0;
+// modified from https://stackoverflow.com/questions/64690514/creating-a-resizable-draggable-rotate-view-in-javascript
+const minWidth = 20;
+const minHeight = 20;
 
-	// takes in mouseX and mouseY
-	function calcRotation(x, y) {
-		// mouseX and mouseY relative to center of element
-		const mouseX = x - rotatedElmnt.offsetLeft - rotatedElmnt.offsetWidth / 2;
-		const mouseY = y - rotatedElmnt.offsetTop - rotatedElmnt.offsetHeight / 2;
-		// calculate angle from center of element to mouse
-		let angle = Math.atan2(mouseY, mouseX);
-		// convert to degrees
-		angle *= 180 / Math.PI;
-		return angle;
-	}
-
-	function rotateMouseDown(e) {
-		if (selected.value) {
-			e = e || window.event;
-			e.preventDefault();
-			e.stopPropagation();
-
-			rotatedElmnt.classList.add('notransition');
-			rotating.value = true;
-			startingRotation = calcRotation(e.clientX, e.clientY);
-			document.onmouseup = closeRotateElement;
-			document.onmousemove = elementRotate;
-		}
-	}
-
-	function elementRotate(e) {
-		e.preventDefault();
-		e.stopPropagation();
-
-		const angle = calcRotation(e.clientX, e.clientY);
-		// emit rotation
-		emit('rotate', currentRotation.value + angle - startingRotation);
-		// update starting rotation
-		startingRotation = angle;
-	}
-
-	function closeRotateElement() {
-		rotatedElmnt.classList.remove('notransition');
-		rotating.value = false;
-		document.onmouseup = null;
-		document.onmousemove = null;
-		finishRotate();
-	}
-}
-
-// also slightly copied from w3schools
-export const resizeElement = (borderElmnt, parentElmnt, selected, emit, finishMove, finishResize, resizeDirection, resizing) => {
-	let borderSize, initialWidth, initialHeight,
-		initElmntLeft, initElmntWidth,
-		initElmntTop, initElmntHeight;
-	borderElmnt.onmousedown = resizeMouseDown;
-
-	function resizeMouseDown(e) {
-		if (selected.value) {
-			e = e || window.event;
-			e.preventDefault();
-			e.stopPropagation();
-
-			borderSize = (borderElmnt.offsetWidth - parentElmnt.offsetWidth) / 2;
-			initialWidth = parentElmnt.offsetWidth;
-			initialHeight = parentElmnt.offsetHeight;
-			initElmntLeft = parentElmnt.offsetLeft; initElmntTop = parentElmnt.offsetTop;
-			initElmntWidth = parentElmnt.offsetWidth; initElmntHeight = parentElmnt.offsetHeight;
-
-			parentElmnt.classList.add('notransition');
-			resizing.value = true;
-			document.onmouseup = closeResizeElement;
-			// call a function whenever the cursor moves:
-			document.onmousemove = elementResize;
-		}
-	}
-
-	function elementResize(e) {
-		e = e || window.event;
-		e.preventDefault();
-		
-		// adjust for transform css
-		const rect = parentElmnt.getBoundingClientRect();
-		const mouseX = e.pageX + (parentElmnt.offsetLeft - rect.left); 
-		const mouseY = e.pageY + (parentElmnt.offsetTop - rect.top);
-
-		const borderOffset = -borderSize/2;
-
-		const width = (resizeDirection.value[0] > 0)? mouseX - initElmntLeft: initElmntWidth - mouseX + initElmntLeft;
-		const height = (resizeDirection.value[1] > 0)? mouseY - initElmntTop: initElmntHeight - mouseY + initElmntTop;
-		const resizeScale = (width / initialWidth + height / initialHeight) / 2; // a decimal
-		const percentChange = resizeScale - 1; // a decimal
-		
-
-		if (resizeDirection.value[0] > 0) {
-			if (resizeDirection.value[1] > 0)
-				emit("resize", initialWidth * resizeScale + borderOffset, initialHeight * resizeScale + borderOffset);
-			else if (resizeDirection.value[1] < 0) {
-				emit("resize", (initialWidth * resizeScale) + borderOffset, (initialHeight * resizeScale) + borderOffset);
-				emit("move", null, initElmntTop - (initialHeight * percentChange) - borderOffset);
-			}
-			else
-				emit("resize", width + borderOffset, null);
-		}
-		else if (resizeDirection.value[0] < 0) {
-			if (resizeDirection.value[1] > 0) {
-				emit("resize", (initialWidth * resizeScale) + borderOffset, (initialHeight * resizeScale) + borderOffset);
-				emit("move", initElmntLeft - (initialWidth * percentChange) - borderOffset, null);
-			}
-			else if (resizeDirection.value[1] < 0) {
-				emit("resize", (initialWidth * resizeScale) + borderOffset, (initialHeight * resizeScale) + borderOffset);
-				emit("move", initElmntLeft - (initialWidth * percentChange) - borderOffset, 
-							initElmntTop - (initialHeight * percentChange) - borderOffset);
-			}
-			else {
-				emit("resize", width + borderOffset, null);
-				emit("move", mouseX - borderOffset, null);
-			}
-		}
-		else {
-			if (resizeDirection.value[1] > 0)
-				emit("resize", null, height + borderOffset);
-			else if (resizeDirection.value[1] < 0) {
-				emit("resize", null, height + borderOffset);
-				emit("move", null, mouseY - borderOffset);
-			}
-		}
-	}
-
-	function closeResizeElement() {
-		/* stop moving when mouse button is released:*/
-		document.onmouseup = null;
-		document.onmousemove = null;
-
-		parentElmnt.classList.remove('notransition');
-		resizing.value = false;
-		finishMove();
-		finishResize();
-	}
+const cancelEvent = (event) => {
+	event.preventDefault();
+	event.stopPropagation();
 };
 
-// mostly copied from w3schools
-export const dragElement = (elmnt, selected, emit, finishMove, cursorType) => {
-	let startingX = 0, startingY = 0;
-	elmnt.onmousedown = dragMouseDown;
+// adds drag functionality to an element
+export const dragElement = (elmnt, isSelected, emit) => {
+	elmnt.addEventListener('mousedown', (event) => {
+		if (!isSelected.value)
+			return;
+		cancelEvent(event);
 
-	function dragMouseDown(e) {
-		if (selected.value) {
-			cursorType.value = "grabbing";
-
-			e = e || window.event;
-			e.preventDefault();
-			// get the mouse cursor position at startup:
-			startingX = e.clientX;
-			startingY = e.clientY;
-			
-			elmnt.classList.add('notransition');
-			document.onmouseup = closeDragElement;
-			// call a function whenever the cursor moves:
-			document.onmousemove = elementDrag;
+		// initial values
+		const initX = elmnt.offsetLeft;
+		const initY = elmnt.offsetTop;
+		const initMouseX = event.clientX;
+		const initMouseY = event.clientY;
+	
+		const eventMoveHandler = (event) => {
+			cancelEvent(event);
+			emit('move', initX + (event.clientX - initMouseX),
+				initY + (event.clientY - initMouseY));
 		}
-	}
+	
+		elmnt.addEventListener('mousemove', eventMoveHandler, false);
 
-	function elementDrag(e) {
-		e = e || window.event;
-		e.preventDefault();
-		// calculate the new cursor position:
-		const deltaX = startingX - e.clientX;
-		const deltaY = startingY - e.clientY;
-		startingX = e.clientX;
-		startingY = e.clientY;
-		// turn off transition temporarily
-		emit('move', elmnt.offsetLeft - deltaX, elmnt.offsetTop - deltaY);
-	}
+		window.addEventListener('mouseup', function eventEndHandler() {
+			elmnt.removeEventListener('mousemove', eventMoveHandler, false);
+			window.removeEventListener('mouseup', eventEndHandler);
+		}, false);
+	
+	}, false);
+};
 
-	function closeDragElement() {
-		/* stop moving when mouse button is released:*/
-		document.onmouseup = null;
-		document.onmousemove = null;
-		cursorType.value = "grab";
+// adds resize functionality to an element
+// resizeElmnts is in order [topLeft, top, topRight, left, right, bottomLeft, bottom, bottomRight]
+export const resizeElement = (elmnt, resizeElmnts, isSelected, rotation, emit) => {
+	const resizeHandler = (event, top = false, left = false, xResize = false, yResize = false) => {
+		if (!isSelected.value)
+			return;
+		cancelEvent(event);
 
-		elmnt.classList.remove('notransition');
-		finishMove();
-	}
+		const initX = elmnt.offsetLeft;
+		const initY = elmnt.offsetTop;
+		const initMouseX = event.clientX;
+		const initMouseY = event.clientY;
+	
+		const initW = elmnt.offsetWidth;
+		const initH = elmnt.offsetHeight;
+	
+		const initRotate = rotation.value;
+		const initRadians = initRotate * Math.PI / 180;
+		const cosFraction = Math.cos(initRadians);
+		const sinFraction = Math.sin(initRadians);
+		const eventMoveHandler = (event) => {
+			var wDiff = (event.clientX - initMouseX);
+			var hDiff = (event.clientY - initMouseY);
+			var rotatedWDiff = cosFraction * wDiff + sinFraction * hDiff;
+			var rotatedHDiff = cosFraction * hDiff - sinFraction * wDiff;
+	
+			let newW = initW, newH = initH, newX = initX, newY = initY;
+	
+			if (xResize) {
+				if (left) {
+					// wDiff is negative if increasing size from left
+					newW = initW - rotatedWDiff;
+					if (newW < minWidth) {
+						newW = minWidth;
+						rotatedWDiff = initW - minWidth;
+					}
+				} else {
+					newW = initW + rotatedWDiff;
+					if (newW < minWidth) {
+						newW = minWidth;
+						rotatedWDiff = minWidth - initW;
+					}
+				}
+				newX += rotatedWDiff * cosFraction;
+				newY += rotatedWDiff * sinFraction;
+			}
+	
+			if (yResize) {
+				if (top) {
+					newH = initH - rotatedHDiff;
+					if (newH < minHeight) {
+						newH = minHeight;
+						rotatedHDiff = initH - minHeight;
+					}
+				} else {
+					newH = initH + rotatedHDiff;
+					if (newH < minHeight) {
+						newH = minHeight;
+						rotatedHDiff = minHeight - initH;
+					}
+				}
+				newX -= rotatedHDiff * sinFraction;
+				newY += rotatedHDiff * cosFraction;
+			}
+	
+			emit('resize', newW, newH);
+			emit('move', newX, newY);
+		};
+	
+	
+		window.addEventListener('mousemove', eventMoveHandler, false);
+		window.addEventListener('mouseup', function eventEndHandler() {
+			window.removeEventListener('mousemove', eventMoveHandler, false);
+			window.removeEventListener('mouseup', eventEndHandler);
+		}, false);
+	};
+	
+	resizeElmnts[0].addEventListener("mousedown", (event) => resizeHandler(event, true, true, true, true));
+	resizeElmnts[1].addEventListener("mousedown", (event) => resizeHandler(event, true, false, false, true));
+	resizeElmnts[2].addEventListener("mousedown", (event) => resizeHandler(event, true, false, true, true));
+	resizeElmnts[3].addEventListener("mousedown", (event) => resizeHandler(event, false, true, true, false));
+	resizeElmnts[4].addEventListener("mousedown", (event) => resizeHandler(event, false, false, true, false));
+	resizeElmnts[5].addEventListener("mousedown", (event) => resizeHandler(event, false, true, true, true));
+	resizeElmnts[6].addEventListener("mousedown", (event) => resizeHandler(event, false, false, false, true));
+	resizeElmnts[7].addEventListener("mousedown", (event) => resizeHandler(event, false, false, true, true));
+};
+
+// handle rotation
+export const rotateElement = (elmnt, rotateElmnt, isSelected, emit) => {
+	rotateElmnt.onmousedown = (event) => {
+		if (!isSelected.value)
+			return;
+		cancelEvent(event);
+
+		const boxRect = elmnt.getBoundingClientRect();
+		var elmntX = boxRect.left + boxRect.width / 2;
+		var elmntY = boxRect.top + boxRect.height / 2;
+	
+		const eventMoveHandler = (event) => {
+			var angle = Math.atan2(event.clientY - elmntY, event.clientX - elmntX) - Math.PI / 4;
+			emit('rotate', angle * 180 / Math.PI);
+		};
+	
+		document.onmousemove = eventMoveHandler;
+	
+		document.onmouseup = () => {
+			document.onmousemove = null;
+			document.onmouseup = null;
+		};
+	};
 };

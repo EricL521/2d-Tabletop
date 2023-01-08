@@ -144,6 +144,11 @@ export class Board {
 		item.resizeTo(width, height);
 		this.emit("itemResize", key);
 	}
+	rotateItem(key, angle) {
+		const item = this.getItem(key);
+		item.rotateTo(angle);
+		this.emit("itemRotate", key);
+	}
 	// sets the parent item of childkey to parentkey
 	parentItem(child, parent) {
 		if (!parent)

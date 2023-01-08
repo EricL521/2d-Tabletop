@@ -73,7 +73,7 @@ const uploadData = (e) => {
 	fileReader.onload = async (file) => {
 		const res  = file.target.result;
 		const img = await resizeImg(100000, res);
-		addItem(e.clientX - img.width/2, e.clientY - img.height/2, 0, img.width, img.height, "img", {dataURL: img.toDataURL()});
+		addItem(e.clientX, e.clientY, 0, img.width, img.height, "img", {dataURL: img.toDataURL()});
 	};
 };
 // returns canvas with the image on it
@@ -105,6 +105,7 @@ const resizeImg = async (pixels, dataURL) => {
 		};
 	});
 };
+const boardItemContainer = ref(null);
 onMounted(() => {
 	document.addEventListener("drop", uploadData);
 	document.addEventListener("dragover", cancelEvent);
@@ -117,9 +118,9 @@ onMounted(() => {
 		<div id="tool-bar">
 			<img src="../../assets/icons/Paint_Brush.svg">
 		</div>
-		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
+		<div ref="boardItemContainer" id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
 			<!-- For nonchildren only -->
-			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item"
+			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item" :parentElement="boardItemContainer"
 			@updateSelection="updateSelection" :selectedItem="selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
@@ -131,8 +132,10 @@ onMounted(() => {
 			@finishResize="(key, width, height) => board.resizeItem(key, width, height)"
 			@resize="(width, height) => item.resizeTo(width, height)"
 
-			:rotation="item.rotation" @rotate="(rotation) => item.rotateTo(rotation)"
-			
+			:rotation="item.rotation"
+			@finishRotate="(key, rotation) => board.rotateItem(key, rotation)" 
+			@rotate="(rotation) => item.rotateTo(rotation)"
+
 			:type="item.type" :data="item.data"
 			:children="item.children">
 			</BoardItem>
