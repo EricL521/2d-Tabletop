@@ -19,7 +19,7 @@
 	background-color: #F7F0F5;
 }
 
-.notransition {
+.no-transition {
 	transition: none !important;
 }
 

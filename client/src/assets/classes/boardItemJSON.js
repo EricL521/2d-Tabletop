@@ -41,6 +41,39 @@ export class BoardItemJSON {
 		this.parent = parent;
 		// children is a set of objects
 		this.children = children? children: new Set();
+
+		// event => new Set(functions)
+		this.eventListeners = new Map();
+		// set of listeners called on any event
+		this.anyEventListeners = new Set();
+	}
+
+	// adds listener on event
+	on(event, func) {
+		if (this.eventListeners.has(event))
+			this.eventListeners.get(event).add(func);
+		else
+			this.eventListeners.set(event, new Set([func]));
+	}
+	// removes listener from event
+	off(event, func) {
+		if (this.eventListeners.has(event))
+			this.eventListeners.get(event).delete(func);
+	}
+	onAny(func) {
+		this.anyEventListeners.add(func);
+	}
+	offAny(func) {
+		this.anyEventListeners.delete(func);
+	}
+	// emits to all listeners of event
+	emit(event, ...data) {
+		if (this.eventListeners.has(event))
+			for (const func of this.eventListeners.get(event))
+				func.bind(this)(...data);
+		// emit to onAny listeners
+		for (const func of this.anyEventListeners)
+			func.bind(this)(event, ...data);
 	}
 
 	
@@ -65,10 +98,10 @@ export class BoardItemJSON {
 	get isChild() { return this.parent || Number.isFinite(this.parent)? true: false; }
 
 	get absoluteX() {
-		return this.x + (this.parent? this.parent.absoluteX: 0);
+		return this.x + (this.parent? this.parent.absoluteX - this.parent.width/2: 0);
 	}
 	get absoluteY() {
-		return this.y + (this.parent? this.parent.absoluteY: 0);
+		return this.y + (this.parent? this.parent.absoluteY - this.parent.height/2: 0);
 	}
 	get absoluteRotation() {
 		return this.rotation + (this.parent? this.parent.absoluteRotation: 0);
@@ -98,6 +131,8 @@ export class BoardItemJSON {
 		return child.parent.key == this.key;
 	}
 	isChildOf(parent) {
+		if (!parent) // if parent does not exist, then this is not a child of it
+			return false;
 		return parent.isParentOf(this);
 	}
 
@@ -163,6 +198,8 @@ export class BoardItemJSON {
 		this.x = x? x: this.x;
 		this.y = y? y: this.y;
 		this.z = z? z: this.z;
+
+		this.emit("move", this.x, this.y, this.z);
 	}
 	resizeTo (width, height) {
 		// can recieve null values
@@ -182,9 +219,13 @@ export class BoardItemJSON {
 		
 		this.width *= x;
 		this.height *= y;
+
+		this.emit("resize", this.width, this.height);
 	}
 	rotateTo (rotation) {
 		this.rotation = rotation;
+
+		this.emit("rotate", this.rotation);
 	}
 
 	// update is if function was called to update current item to match other item
@@ -203,6 +244,7 @@ export class BoardItemJSON {
 		if (!update)
 			child.setParent(this, true);
 		
+		this.emit("addChild", child.key);
 		return true;
 	}
 	removeChild(child, update) {
@@ -212,6 +254,7 @@ export class BoardItemJSON {
 		if (!update)
 			child.removeParent(true);
 		
+		this.emit("removeChild", child.key);
 		return true;
 	}
 	setParent(parent, update) {
@@ -230,16 +273,17 @@ export class BoardItemJSON {
 		
 		this.parent = parent;
 		// update position
-		this.x -= parent.absoluteX;
-		this.y -= parent.absoluteY;
+		this.x -= parent.absoluteX - parent.width/2;
+		this.y -= parent.absoluteY - parent.height/2;
 		// correct for rotation
 		// NOTE: you need to rotate centers around each other, not corners
-		[this.x, this.y] = this.rotatePoint([this.x, this.y], [0, 0], -parent.absoluteRotation);
+		[this.x, this.y] = this.rotatePoint([this.x, this.y], [parent.width/2, parent.height/2], -parent.absoluteRotation);
 		this.rotation -= parent.absoluteRotation;
 		
 		if (!update)
 			parent.addChild(this, true);
 		
+		this.emit("setParent", parent.key);
 		return true;
 	}
 	removeParent(update) {
@@ -250,21 +294,24 @@ export class BoardItemJSON {
 			this.parent.removeChild(this, true);
 		
 		// correct for rotation
-		[this.x, this.y] = this.rotatePoint([this.x, this.y], [0, 0], this.parent.absoluteRotation);
+		[this.x, this.y] = this.rotatePoint([this.x, this.y], [this.parent.width/2, this.parent.height/2], this.parent.absoluteRotation);
 		this.rotation += this.parent.absoluteRotation;
 		// update position
-		this.x += this.parent.absoluteX;
-		this.y += this.parent.absoluteY;
+		this.x += this.parent.absoluteX - this.parent.width/2;
+		this.y += this.parent.absoluteY - this.parent.height/2;
 		this.parent = null;
 
+		this.emit("removeParent");
 		return true;
 	}
 
 	select() {
 		this.selected = true;
+		this.emit("select");
 	}
 	deselect() {
 		this.selected = false;
+		this.emit("deselect");
 	}
 
 }

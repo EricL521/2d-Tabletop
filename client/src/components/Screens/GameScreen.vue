@@ -17,14 +17,13 @@ const items = computed(() => {
 	console.log("updated");
 	return board.boardItems;
 });
-window.items = items;
 board.onAny(() => {
 	updater.value++;
 });
 
 const selectedItem = ref(null);
 board.on("itemSelect", (key, item) => {
-	selectedItem.value = item;
+	setTimeout(() => selectedItem.value = item, 0);
 });
 const updateSelection = (e, key) => {
 	cancelEvent(e);
@@ -124,17 +123,9 @@ onMounted(() => {
 			@updateSelection="updateSelection" :selectedItem="selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
-			:x="item.x" :y="item.y" :z="item.z" :absoluteX="item.absoluteX" :absoluteY="item.absoluteY"
-			@finishMove="(key, x, y, z) => board.moveItem(key, x, y, z)" 
-			@move="(x, y, z) => item.moveTo(x, y, z)"
-			
-			:width="item.width" :height="item.height" 
-			@finishResize="(key, width, height) => board.resizeItem(key, width, height)"
-			@resize="(width, height) => item.resizeTo(width, height)"
-
-			:rotation="item.rotation"
-			@finishRotate="(key, rotation) => board.rotateItem(key, rotation)" 
-			@rotate="(rotation) => item.rotateTo(rotation)"
+			:x="item.x" :y="item.y" :z="item.z"	@finishMove="(key, x, y, z) => board.moveItem(key, x, y, z)" 
+			:width="item.width" :height="item.height" @finishResize="(key, width, height) => board.resizeItem(key, width, height)"
+			:rotation="item.rotation" @finishRotate="(key, rotation) => board.rotateItem(key, rotation)" 
 
 			:type="item.type" :data="item.data"
 			:children="item.children">
