@@ -8,7 +8,7 @@ connectionEvents.on = connectionEvents.set;
 export class BoardClient extends Board {
 	static connectionEvents = connectionEvents;
 
-	constructor (socket, gameId, password, hostPeerId, playerName, peer) {
+	constructor (socket, peer, gameId, password, hostPeerId, playerName) {
 		super(socket, null, gameId, password, null, playerName);
 		// null will be set once connected to host
 		this.hostConn = null;
@@ -70,15 +70,15 @@ export class BoardClient extends Board {
 		if (!foreign)
 			this.sendToHost('addItem', item);
 	}
-	moveItem (key, x, y, foreign) {
-		super.moveItem(key, x, y);
+	moveItem (key, position, foreign) {
+		super.moveItem(key, position);
 		if (!foreign)
-			this.sendToHost('moveItem', key, x, y);
+			this.sendToHost('moveItem', key, position);
 	}
-	resizeItem (key, width, height, foreign) {
-		super.resizeItem(key, width, height);
+	scaleItem (key, scale, foreign) {
+		super.scaleItem(key, scale);
 		if (!foreign)
-			this.sendToHost('resizeItem', key, width, height);
+			this.sendToHost('scaleItem', key, scale);
 	}
 	parentItem (childKey, parentKey, foreign) {
 		super.parentItem(childKey, parentKey);
@@ -111,11 +111,11 @@ connectionEvents.on('joinResponse', function (conn, success, boardName, playerNa
 connectionEvents.on('addItem', function (conn, item) {
 	this.addItem(item, true);
 });
-connectionEvents.on('moveItem', function(conn, key, x, y) {
-	this.moveItem(key, x, y, true);
+connectionEvents.on('moveItem', function(conn, key, position) {
+	this.moveItem(key, position, true);
 });
-connectionEvents.on('resizeItem', function(conn, key, width, height) {
-	this.resizeItem(key, width, height, true);
+connectionEvents.on('scaleItem', function(conn, key, scale) {
+	this.resizeItem(key, scale, true);
 });
 connectionEvents.on('parentItem', function(conn, childKey, parentKey) {
 	this.parentItem(childKey, parentKey, true);

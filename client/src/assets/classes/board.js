@@ -127,6 +127,7 @@ export class Board {
 	addItem(itemData) {
 		const key = this.nextKey ++;
 		itemData.key = key;
+		itemData.scale = itemData.scale? itemData.scale: [1, 1];
 		itemData.playerName = itemData.playerName? itemData.playerName: this.playerName;
 		const item = new BoardItemJSON(itemData);
 		if (!item.isChild)
@@ -134,14 +135,14 @@ export class Board {
 		this.emit("itemCreate", key);
 		return item;
 	}
-	moveItem(key, x, y) {
+	moveItem(key, position) {
 		const item = this.getItem(key);
-		item.moveTo(x, y);
+		item.moveTo(position);
 		this.emit("itemMove", key);
 	}
-	resizeItem(key, width, height) {
+	scaleItem(key, scale) {
 		const item = this.getItem(key);
-		item.resizeTo(width, height);
+		item.scaleTo(scale);
 		this.emit("itemResize", key);
 	}
 	rotateItem(key, angle) {

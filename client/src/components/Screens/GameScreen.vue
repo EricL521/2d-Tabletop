@@ -1,10 +1,10 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, toRaw } from 'vue';
 import BoardItem from '../BoardItem.vue';
 const props = defineProps(['data']);
 const emit = defineEmits(['updateHeader', 'changeScreen', 'updateData']);
 // eslint-disable-next-line vue/no-setup-props-destructure
-const board = props.data.board;
+const board = toRaw(props.data.board);
 console.log(`${board.name} - ${board.id}`);
 emit('updateHeader', true, `${board.name} - ${board.id}`);
 
@@ -17,6 +17,7 @@ const items = computed(() => {
 	console.log("updated");
 	return board.boardItems;
 });
+window.items = board.boardItems;
 board.onAny(() => {
 	updater.value++;
 });
@@ -54,10 +55,9 @@ const onIntersect = (key, areaPercent) => {
 };
 
 // keys assigned in board, as they need to be synced
-const addItem = (x, y, z, width, height, type, data, parent) => {
+const addItem = (position, size, type, data, parent) => {
 	board.addItem({
-		x, y, z, 
-		width, height,
+		position, size,
 		type, data,
 		parent: parent? parent: null
 	});
@@ -72,7 +72,7 @@ const uploadData = (e) => {
 	fileReader.onload = async (file) => {
 		const res  = file.target.result;
 		const img = await resizeImg(100000, res);
-		addItem(e.clientX, e.clientY, 0, img.width, img.height, "img", {dataURL: img.toDataURL()});
+		addItem([e.clientX, e.clientY, 0], [img.width, img.height], "img", {dataURL: img.toDataURL()});
 	};
 };
 // returns canvas with the image on it
@@ -104,27 +104,29 @@ const resizeImg = async (pixels, dataURL) => {
 		};
 	});
 };
-const boardItemContainer = ref(null);
+
 onMounted(() => {
 	document.addEventListener("drop", uploadData);
 	document.addEventListener("dragover", cancelEvent);
 	document.addEventListener("drag", cancelEvent);
 });
+
+const boardItemContainer = ref(null);
 </script>
 
 <template>
 	<div id="game-screen">
-		<div id="tool-bar">
+		<!-- <div id="tool-bar">
 			<img src="../../assets/icons/Paint_Brush.svg">
-		</div>
+		</div> -->
 		<div ref="boardItemContainer" id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
 			<!-- For nonchildren only -->
 			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item" :parentElement="boardItemContainer"
 			@updateSelection="updateSelection" :selectedItem="selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
-			:x="item.x" :y="item.y" :z="item.z"	@finishMove="(key, x, y, z) => board.moveItem(key, x, y, z)" 
-			:width="item.width" :height="item.height" @finishResize="(key, width, height) => board.resizeItem(key, width, height)"
+			:position="item.position" @finishMove="(key, position) => board.moveItem(key, position)" 
+			:size="item.size" :scale="item.scale" @finishScale="(key, scale) => board.scaleItem(key, scale)"
 			:rotation="item.rotation" @finishRotate="(key, rotation) => board.rotateItem(key, rotation)" 
 
 			:type="item.type" :data="item.data"

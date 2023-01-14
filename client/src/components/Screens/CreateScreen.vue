@@ -8,8 +8,8 @@
 	const emit = defineEmits(['changeScreen', 'updateData']);
 
 	socket.emit('createBoard', peer.id, props.data.settings, (gameId) => {
-		const board = new BoardHost(socket, props.data.gameName, gameId, props.data.password, props.data.settings, 
-									props.data.playerName, peer);
+		const board = new BoardHost(socket, peer, props.data.gameName, gameId, props.data.password, 
+									props.data.settings, props.data.playerName);
 		// update data
 		emit('updateData', {
 			"playerName": props.data.playerName,

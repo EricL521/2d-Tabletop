@@ -2,9 +2,10 @@
 import { computed, getCurrentInstance, ref, watch } from 'vue';
 import Moveable from "vue3-moveable";
 
-const emit = defineEmits(['updateSelection', 'updateIntersection', 'move', 'finishMove', 'resize', 'finishResize', 'rotate', 'finishRotate']);
-const props = defineProps(['parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'x', 'y', 'z',
-							'width', 'height', 'rotation', 'type', 'data', 'children', 'isChild', 'parent']);
+const emit = defineEmits(['updateSelection', 'updateIntersection', 'finishMove', 'finishScale', 'finishRotate']);
+const props = defineProps(['parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'position',
+							'size', 'scale', 'rotation', 'type', 'data', 'children', 'isChild',
+							'parentPosition', 'parentScale', 'parentRotation']); // these are used to cancel out parent transforms
 const key = getCurrentInstance().vnode.key;
 const isSelected = ref(props.selectedItem && props.selectedItem.key === key);
 // if child is selected, move parent to top
@@ -43,27 +44,43 @@ const onIntersect = (itemKey, areaPercent) => {
 };
 
 // store a local copy of each of the transforms, so that we can update some of them without updating others
-const position = ref([props.x, props.y]);
-watch([() => props.x, () => props.y], ([x, y]) => {if (!dragging.value) position.value = [x, y];});
-const size = ref([props.width, props.height]);
-watch([() => props.width, () => props.height], ([width, height]) => {if (!resizing.value) size.value = [width, height];});
-const rotation = ref(props.rotation);
-watch(() => props.rotation, (newRotation) => {if (!rotating.value) rotation.value = newRotation;});
-// x and y are the center of the item
-const positionStyle = computed(() => {
+const localPos = ref(props.position);
+watch(() => props.location, (newPosition) => {if (!dragging.value) localPos.value = newPosition;});
+const localScale = ref(props.scale); 
+watch(() => props.scale, (newScale) => {if (!scaling.value) localScale.value = newScale;});
+const localRotation = ref(props.rotation);
+watch(() => props.rotation, (newRotation) => {if (!rotating.value) localRotation.value = newRotation;});
+const zStyle = computed(() => {
 	return {
-		left: position.value[0] - size.value[0]/2 + 'px',
-		top: position.value[1] - size.value[1]/2 + 'px',
 		zIndex: props.z
 	};
 });
+// returns the position of the lement after centering it
+const getCenteredPos = (pos, size) => [pos[0] - size[0]/2, pos[1] - size[1]/2];
 const sizeStyle = computed(() => {return {
-	width: size.value[0] + 'px',
-	height: size.value[1] + 'px'
+	// NOTE: the size is changed by scale in transform
+	width: props.size[0] + 'px',
+	height: props.size[1] + 'px'
 }});
-const rotationStyle = computed(() => {return {
-	transform: 'rotate(' + rotation.value + 'deg)'
+// also contains position
+const transformStyle = computed(() => {return {
+	transform: getTransform(localPos.value, localRotation.value, localScale.value)
 }});
+const getTransform = (position, rotation, scale) => {
+	const pos = getCenteredPos(position, props.size);
+	return 'translate(' + pos[0] + 'px, ' + pos[1] + 'px' + ')' + ' ' +
+		'rotate(' + rotation + 'deg)' + ' ' +
+		'scale(' + scale[0] + ', ' + scale[1] + ')';
+};
+const reverseParentTransform = computed(() => {
+	if (!props.isChild)
+		return {};
+	return {
+		transform: 'scale(' + (1/props.parentScale[0]) + ', ' + (1/props.parentScale[1]) + ')' +
+			'rotate(' + -props.parentRotation + 'deg)' + ' ' +
+			'translate(' + -props.parentPosition[0] + 'px, ' + -props.parentPosition[1] + 'px' + ')'
+	};
+});
 
 const cursorType = ref("pointer");
 const cursorStyle = computed(() => {return {cursor: cursorType.value}});
@@ -78,122 +95,116 @@ const updateSelection = (e, key) => {
 	// event is cancelled in gamescren
 	emit('updateSelection', e, key);
 };
-const finishDrag = (itemKey, x, y, z) => {
-	if (itemKey != null)
-		emit('finishMove', itemKey, x, y, z);
-	else
-		emit('finishMove', key, props.x, props.y, props.z);
+const finishDrag = (itemKey, position) => {
+	emit('finishMove', itemKey, position);
 };
-const finishResize = (itemKey, width, height) => {
-	if (itemKey != null)
-		emit('finishResize', itemKey, width, height);
-	else
-		emit('finishResize', key, props.width, props.height);
+const finishScale = (itemKey, size) => {
+	emit('finishScale', itemKey, size);
 };
 const finishRotate = (itemKey, rotation) => {
-	if (itemKey != null)
-		emit('finishRotate', itemKey, rotation);
-	else
-		emit('finishRotate', key, props.rotation);
-}; // -------_______----------- TODO: add listener to gamescreen
+	emit('finishRotate', itemKey, rotation);
+};
 
 // storing whether the item is being dragged, resized, or rotated, so it won't update if someone else is doing it
-const moving = computed(() => dragging.value || resizing.value || rotating.value);
-const dragging = ref(false); const resizing = ref(false); const rotating = ref(false);
-const dragStart = () => {
+const moving = computed(() => dragging.value || scaling.value || rotating.value);
+const dragging = ref(false); const scaling = ref(false); const rotating = ref(false);
+const dragStart = ({set}) => {
 	if (!isSelected.value) return;
 
 	cursorType.value = "grabbing";
 	dragging.value = true;
+	// NOTE: There is no need to getCeneteredPos, because drag also does not use getCenteredPos
+	set(localPos.value);
 };
-const resizeStart = ({setOrigin, dragStart}) => {
+const scaleStart = (e) => {
 	if (!isSelected.value) return;
 
-	resizing.value = true;
-	setOrigin(['%', '%']);
-	dragStart && dragStart.set([position.value[0] - size.value[0]/2, position.value[1] - size.value[1]/2]);
+	scaling.value = true;
+	e.set(localScale.value);
+	if (e.dragStart)
+		dragStart(e.dragStart);
 };
 const rotateStart = (e) => {
 	if (!isSelected.value) return;
 
 	rotating.value = true;
-	e.set(rotation.value);
+	e.set(localRotation.value);
 };
 
-const drag = ({left, top}) => {
+const drag = ({beforeTranslate}) => {
 	if (!isSelected.value) return;
+	if (!beforeTranslate) return;
 
-	position.value = [left + size.value[0]/2, top + size.value[1]/2];
-	props.thisItem.moveTo(...position.value);
-	boardItem.value.style.left = left + 'px';
-	boardItem.value.style.top = top + 'px';
+	// NOTE: There is no need to getCeneteredPos, because drag also does not use getCenteredPos
+	localPos.value = beforeTranslate.slice(0, 2);
+	props.thisItem.moveTo(localPos.value);
+	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
 };
-// this one is different, because I want drag function to be called that
-const resize = (e) => {
+// this one is different (with e), because I want drag function to be called that
+const scale = (e) => {
 	if (!isSelected.value) return;
-	const width = e.width; const height = e.height;
-
-	size.value = [width, height];
-	props.thisItem.resizeTo(...size.value);
-	boardItem.value.style.width = width + 'px';
-	boardItem.value.style.height = height + 'px';
-	if (e.drag.beforeTranslate)
-		drag({left: e.drag.beforeTranslate[0], top: e.drag.beforeTranslate[1]});
+ 
+	localScale.value = e.scale;
+	props.thisItem.scaleTo(localScale.value);
+	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
+	drag(e.drag);
 };
 const rotate = ({beforeRotate}) => {
 	if (!isSelected.value) return;
 
-	rotation.value = beforeRotate;
-	props.thisItem.rotateTo(rotation.value);
-	boardItem.value.style.transform = 'rotate(' + (beforeRotate) + 'deg)';
+	localRotation.value = beforeRotate % 360;
+	props.thisItem.rotateTo(localRotation.value);
+	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
 };
 
 const end = () => {
-	[dragging, resizing, rotating].forEach(ref => ref.value = false);
+	[dragging, scaling, rotating].forEach(ref => ref.value = false);
 };
 const dragEnd = () => {
 	if (!isSelected.value) return;
 
 	end();
 	cursorType.value = "grab";
-	finishDrag(key, ...position.value);
+	finishDrag(key, ...localPos.value);
 };
-const resizeEnd = () => {
+const scaleEnd = () => {
 	if (!isSelected.value) return;
 
 	end();
 	dragEnd();
-	finishResize(key, ...size.value);
+	finishScale(key, localScale.value);
 };
 const rotateEnd = () => {
 	if (!isSelected.value) return;
 
 	end();
-	finishRotate(key, rotation.value);
+	finishRotate(key, localRotation.value);
 };
 
 const boardItem = ref(null);
-const childrenDiv = ref(null);
 </script>
 
 <template>
 	<div ref="boardItem" :id="key" class="board-item" 
 		:class="{child: props.isChild, childSelected: childSelected, parentSelected: parentSelected, selected: isSelected, 
 				parenting: isParenting, 'no-transition': moving}"
-		:style="[positionStyle, sizeStyle, rotationStyle, cursorStyle]"
+		:style="[zStyle, sizeStyle, transformStyle, cursorStyle]"
 		@click="(e) => updateSelection(e, key)">
-		<div ref="childrenDiv" id="children">
+		<div id="children">
 			<!-- IF SOMETHING IS WORKING FOR THE PARENT, BUT NOT THE CHILDREN THE PROBLEM IS HERE -->
-			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item" :parentElement="childrenDiv"
-			@updateSelection="updateSelection" :selectedItem = "props.selectedItem"
+			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item" 
+			@updateSelection="updateSelection" :selectedItem="props.selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="props.parentingItem"
 			
-			:x="item.x" :y="item.y" :z="item.z" @finishMove="finishDrag"
-			:width="item.width" :height="item.height" @finishResize="finishResize"
+			:position="item.position" @finishMove="finishDrag"
+			:size="item.size" :scale="item.scale" @finishScale="finishScale"
 			:rotation="item.rotation" @finishRotate="finishRotate"
 			
 			:type="item.type" :data="item.data"
-			:children="item.children" :isChild="true" :parent="item.parent">
+			:children="item.children" :isChild="true" 
+			
+			:parentElement="props.parentElement"
+			:parent-position="getCenteredPos(localPos, props.size)" :parent-scale="localScale" :parent-rotation="localRotation">
 			</BoardItem>
 		</div>
 		
@@ -203,14 +214,14 @@ const childrenDiv = ref(null);
 		</div>
 	</div>
 
-	<div id="moveable-wrapper" :class="{hidden: !isSelected}">
+	<div id="moveable-wrapper" :class="{hidden: !isSelected}" :style="reverseParentTransform">
 		<Moveable
 			className="moveable"
 			:target="boardItem" :container="props.parentElement" :origin="false"
-			:draggable="true" :resizable="true" :rotatable="true" :pinchable="true"
-			@drag="drag" @resize="resize" @rotate="rotate" 
-			@dragStart="dragStart" @resizeStart="resizeStart" @rotateStart="rotateStart"
-			@dragEnd="dragEnd" @resizeEnd="resizeEnd" @rotateEnd="rotateEnd"
+			:draggable="true" :scalable="true" :rotatable="true" :pinchable="true"
+			@drag="drag" @scale="scale" @rotate="rotate" 
+			@drag-start="dragStart" @scale-start="scaleStart" @rotate-start="rotateStart"
+			@drag-end="dragEnd" @scale-end="scaleEnd" @rotate-end="rotateEnd"
 		/>
 	</div>
 </template>
@@ -231,12 +242,12 @@ const childrenDiv = ref(null);
 	position: absolute;
 	left: 0;
 	top: 0;
-	width: 0;
-	height: 0;
+	width: 100%;
+	height: 100%;
 	z-index: 1000000;
 	overflow: visible;
 
-	pointer-events: all;
+	pointer-events: none;
 
 	transition: opacity 0.5s ease;
 	opacity: 1;
@@ -245,11 +256,18 @@ const childrenDiv = ref(null);
 	opacity: 0;
 	pointer-events: none;
 }
+.moveable {
+	width: 0px !important;
+	height: 0px !important;
+	pointer-events: all !important;
+}
 
 .board-item {
 	position: absolute;
 	transition: all 0.5s ease, z-index 0s ease 0.25s;
 	pointer-events: all;
+	left: 0;
+	top: 0;
 }
 .board-item.child {
 	transition: inherit;

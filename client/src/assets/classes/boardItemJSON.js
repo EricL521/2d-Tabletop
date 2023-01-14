@@ -20,18 +20,20 @@ export class BoardItemJSON {
 	}
 
 	// x and y are the center of the item
-	constructor ({key, playerName, x, y, z, width, height, rotation, type, data, parent, children}) {
+	// size are constant; scale is used to resize
+	// position is in form [x, y, z]
+	// size is in [width, height]
+	// scale is in form [x, y]
+	constructor ({key, playerName, position, size, scale, rotation, type, data, parent, children}) {
 		BoardItemJSON.set(key, this);
 
 		this.selected = false;
 
 		this.key = key;
 		this.playerName = playerName;
-		this.x = x;
-		this.y = y;
-		this.z = z;
-		this.width = width;
-		this.height = height;
+		this.position = position;
+		this.size = size;
+		this.scale = scale;
 		// in radians
 		this.rotation = Number.isFinite(rotation)? rotation: 0;
 
@@ -97,11 +99,50 @@ export class BoardItemJSON {
 
 	get isChild() { return this.parent || Number.isFinite(this.parent)? true: false; }
 
-	get absoluteX() {
-		return this.x + (this.parent? this.parent.absoluteX - this.parent.width/2: 0);
+	get absolutePosition() {
+		// if this item has no parent, then its absolute position is its position
+		if (!this.parent)
+			return this.position;
+		
+		return this.parent.getAbsolutePosition(this.position);
 	}
-	get absoluteY() {
-		return this.y + (this.parent? this.parent.absoluteY - this.parent.height/2: 0);
+	// for the next 2 functions, I'm using cousin to refer to a point on the same level as the item
+	// returns the absolute position of a point[x, y], which is a child point to this item
+	getAbsolutePosition(point) {
+		// top and left values of this item, in [left, top]
+		const topLeft = [this.position[0] - this.size[0] / 2, this.position[1] - this.size[1] / 2];
+		const cousinPoint = this.rotatePoint( // rotate point to be in line with this item
+			[point[0] + topLeft[0], point[1] + topLeft[1]],
+			this.position, this.rotation
+		);
+		if (!this.parent)
+			return cousinPoint;
+		
+		// if there is a parent, then we need to unrotate that too
+		return this.parent.getAbsolutePosition(cousinPoint);
+	}
+	// returns the relative position of a point[x, y], which is an absolute position
+	getRelativePosition(point) {
+		// if there is a parent, then we need to get the point relative to that
+		// if there is no parent, then the point is already a cousin
+		if (this.parent)
+			point = this.parent.getRelativePosition(point);
+
+		const topLeft = [this.position[0] - this.size[0]/2, this.position[1] - this.size[1]/2];
+		// cousinPoint because it is on the same level as this item
+		const childPoint = this.rotatePoint( // account for rotation
+			[point[0] - topLeft[0], point[1] - topLeft[1]],
+			[this.size[0]/2, this.size[1]/2], -this.rotation
+		);
+		return childPoint;
+	}
+	get absoluteSize() {
+		const absoluteScale = this.absoluteScale;
+		return [this.size[0] * absoluteScale[0], this.size[1] * absoluteScale[1]];
+	}
+	get absoluteScale() {
+		const parentAbsoluteScale = this.parent? this.parent.absoluteScale: [1, 1];
+		return [this.scale[0] * parentAbsoluteScale[0], this.scale[1] * parentAbsoluteScale[1]];
 	}
 	get absoluteRotation() {
 		return this.rotation + (this.parent? this.parent.absoluteRotation: 0);
@@ -138,24 +179,24 @@ export class BoardItemJSON {
 
 	// returns percent area of this item covered by other item
 	percentAreaCoveredBy(item) {
-		// created to only call absoluteX and absoluteY once
-		const otherItem = {x: item.absoluteX, y: item.absoluteY, width: item.width, height: item.height, rotation: item.absoluteRotation};
-		const thisItem = {x: this.absoluteX, y: this.absoluteY, width: this.width, height: this.height, rotation: this.absoluteRotation};
+		// created to only call absolutePosition and Size once
+		const otherItem = {pos: item.absolutePosition, size: item.absoluteSize, rotation: item.absoluteRotation};
+		const thisItem = {pos: this.absolutePosition, size: this.absoluteSize, rotation: this.absoluteRotation};
 		// caculate point of each item, taking rotation into account (rotation is around center of item and in radians)
 		const otherPoints = this.rotatePolygon([
-			[otherItem.x - otherItem.width/2, otherItem.y - otherItem.height/2], 
-			[otherItem.x + otherItem.width/2, otherItem.y - otherItem.height/2], 
-			[otherItem.x + otherItem.width/2, otherItem.y + otherItem.height/2], 
-			[otherItem.x - otherItem.width/2, otherItem.y + otherItem.height/2]], 
-			[otherItem.x, otherItem.y], 
+			[otherItem.pos[0] - otherItem.size[0]/2, otherItem.pos[1] - otherItem.size[1]/2], 
+			[otherItem.pos[0] + otherItem.size[0]/2, otherItem.pos[1] - otherItem.size[1]/2], 
+			[otherItem.pos[0] + otherItem.size[0]/2, otherItem.pos[1] + otherItem.size[1]/2], 
+			[otherItem.pos[0] - otherItem.size[0]/2, otherItem.pos[1] + otherItem.size[1]/2]], 
+			[otherItem.pos[0], otherItem.pos[1]], 
 			otherItem.rotation
 		);
 		const thisPoints = this.rotatePolygon([
-			[thisItem.x - thisItem.width/2, thisItem.y - thisItem.height/2],
-			[thisItem.x + thisItem.width/2, thisItem.y - thisItem.height/2],
-			[thisItem.x + thisItem.width/2, thisItem.y + thisItem.height/2],
-			[thisItem.x - thisItem.width/2, thisItem.y + thisItem.height/2]],
-			[thisItem.x, thisItem.y],
+			[thisItem.pos[0] - thisItem.size[0]/2, thisItem.pos[1] - thisItem.size[1]/2],
+			[thisItem.pos[0] + thisItem.size[0]/2, thisItem.pos[1] - thisItem.size[1]/2],
+			[thisItem.pos[0] + thisItem.size[0]/2, thisItem.pos[1] + thisItem.size[1]/2],
+			[thisItem.pos[0] - thisItem.size[0]/2, thisItem.pos[1] + thisItem.size[1]/2]],
+			[thisItem.pos[0], thisItem.pos[1]],
 			thisItem.rotation
 		);
 		// get poly of intersection
@@ -164,7 +205,7 @@ export class BoardItemJSON {
 		if (intersectionPoly.length == 0)
 			return 0;
 		// get area of intersection
-		return this.polygonArea(intersectionPoly[0][0]) / (thisItem.width * thisItem.height);
+		return this.polygonArea(intersectionPoly[0][0]) / (thisItem.size[0] * thisItem.size[1]);
 	}
 	rotatePolygon(polygon, center, angle) { 
 		const points = [];
@@ -194,33 +235,22 @@ export class BoardItemJSON {
 		return Math.abs(area / 2);
 	}
 
-	moveTo (x, y, z) {
-		this.x = x? x: this.x;
-		this.y = y? y: this.y;
-		this.z = z? z: this.z;
+	moveTo (position) {
+		this.position = [
+			Number.isFinite(position[0])? position[0]: this.position[0],
+			Number.isFinite(position[1])? position[1]: this.position[1],
+			Number.isFinite(position[2])? position[2]: this.position[2],
+		];
 
-		this.emit("move", this.x, this.y, this.z);
+		this.emit("move", this.position);
 	}
-	resizeTo (width, height) {
-		// can recieve null values
-		width = width? width: this.width;
-		height = height? height: this.height;
-
-		this.resizeBy(width / this.width, height / this.height);
-	}
-	// multiplies width and height by x and y respectively
-	// also updates children
-	resizeBy (x, y) {
-		for (const child of this.children) {
-			child.resizeBy(x, y);
-			// resize x and y values
-			child.moveTo(child.x * x, child.y * y);
-		}
-		
-		this.width *= x;
-		this.height *= y;
-
-		this.emit("resize", this.width, this.height);
+	// updates scale, size is NOT changed
+	scaleTo (scale) {
+		this.scale = [
+			scale[0]? scale[0]: this.scale[0],
+			scale[1]? scale[1]: this.scale[1]
+		]
+		this.emit("resize", this.scale);
 	}
 	rotateTo (rotation) {
 		this.rotation = rotation;
@@ -273,12 +303,15 @@ export class BoardItemJSON {
 		
 		this.parent = parent;
 		// update position
-		this.x -= parent.absoluteX - parent.width/2;
-		this.y -= parent.absoluteY - parent.height/2;
-		// correct for rotation
-		// NOTE: you need to rotate centers around each other, not corners
-		[this.x, this.y] = this.rotatePoint([this.x, this.y], [parent.width/2, parent.height/2], -parent.absoluteRotation);
+		// NOTE: This does assume this.position is absolute, but it is b/c we removeparent earlier
+		[this.position[0], this.position[1]] = this.parent.getRelativePosition(this.position.slice(0, 2));
+		// correct rotation
 		this.rotation -= parent.absoluteRotation;
+		// correct for scale
+		this.scale = [
+			this.scale[0] / parent.absoluteScale[0],
+			this.scale[1] / parent.absoluteScale[1]
+		];
 		
 		if (!update)
 			parent.addChild(this, true);
@@ -293,12 +326,10 @@ export class BoardItemJSON {
 		if (!update)
 			this.parent.removeChild(this, true);
 		
-		// correct for rotation
-		[this.x, this.y] = this.rotatePoint([this.x, this.y], [this.parent.width/2, this.parent.height/2], this.parent.absoluteRotation);
-		this.rotation += this.parent.absoluteRotation;
-		// update position
-		this.x += this.parent.absoluteX - this.parent.width/2;
-		this.y += this.parent.absoluteY - this.parent.height/2;
+		// set to absolutes
+		[this.position[0], this.position[1]] = this.absolutePosition;
+		this.rotation = this.absoluteRotation;
+		this.scale = this.absoluteScale;
 		this.parent = null;
 
 		this.emit("removeParent");

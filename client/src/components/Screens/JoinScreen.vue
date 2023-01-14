@@ -10,7 +10,7 @@
 	const status = ref("Connecting");
 
 	socket.emit('joinBoard', props.data.gameId, (hostPeerId) => {
-		const board = new BoardClient(socket, props.data.gameId, props.data.gamePassword, hostPeerId, props.data.playerName, peer);
+		const board = new BoardClient(socket, peer, props.data.gameId, props.data.gamePassword, hostPeerId, props.data.playerName);
 		board.on("join", () => {
 			emit('updateData', {
 				"playerName": props.data.playerName,
