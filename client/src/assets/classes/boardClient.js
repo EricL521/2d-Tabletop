@@ -17,7 +17,7 @@ export class BoardClient extends Board {
 		this.connect = (isRetry) => {
 			const conn = peer.connect(hostPeerId);
 			this.onConnection(conn, isRetry);
-		}
+		};
 	}
 
 	// takes in array of items creates them, and also creats this.boardItems (structured list) too

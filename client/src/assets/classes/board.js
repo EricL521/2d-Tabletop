@@ -133,6 +133,7 @@ export class Board {
 		itemData.key = key;
 		itemData.scale = itemData.scale? itemData.scale: [1, 1];
 		itemData.playerName = itemData.playerName? itemData.playerName: this.playerName;
+		
 		const item = new BoardItemJSON(itemData);
 		if (!item.isChild)
 			this.boardItems.set(key, item);

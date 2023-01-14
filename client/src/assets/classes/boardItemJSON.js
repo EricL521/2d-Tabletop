@@ -79,7 +79,7 @@ export class BoardItemJSON {
 	}
 
 	
-	// returns a simplified version of this item, which has no special classes
+	// returns a simplified version of this item, which has no special objects (Maps + Sets)
 	// also, parent and children are stored as keys instead of objects
 	get simplified() {
 		const item = structuredClone(this);
@@ -109,10 +109,12 @@ export class BoardItemJSON {
 	// for the next 2 functions, I'm using cousin to refer to a point on the same level as the item
 	// returns the absolute position of a point[x, y], which is a child point to this item
 	getAbsolutePosition(point) {
+		// adjust for scale
+		const scaledPoint = this.scalePoint(point, [this.size[0]/2, this.size[1]/2], this.scale);
 		// top and left values of this item, in [left, top]
 		const topLeft = [this.position[0] - this.size[0] / 2, this.position[1] - this.size[1] / 2];
 		const cousinPoint = this.rotatePoint( // rotate point to be in line with this item
-			[point[0] + topLeft[0], point[1] + topLeft[1]],
+			[scaledPoint[0] + topLeft[0], scaledPoint[1] + topLeft[1]],
 			this.position, this.rotation
 		);
 		if (!this.parent)
@@ -127,14 +129,16 @@ export class BoardItemJSON {
 		// if there is no parent, then the point is already a cousin
 		if (this.parent)
 			point = this.parent.getRelativePosition(point);
-
+		
 		const topLeft = [this.position[0] - this.size[0]/2, this.position[1] - this.size[1]/2];
-		// cousinPoint because it is on the same level as this item
+		// childPoint because it is now relative to this item
 		const childPoint = this.rotatePoint( // account for rotation
 			[point[0] - topLeft[0], point[1] - topLeft[1]],
 			[this.size[0]/2, this.size[1]/2], -this.rotation
 		);
-		return childPoint;
+		// adjust for scale
+		const scaledPoint = this.scalePoint(childPoint, [this.size[0]/2, this.size[1]/2], [1/this.scale[0], 1/this.scale[1]]);
+		return scaledPoint;
 	}
 	get absoluteSize() {
 		const absoluteScale = this.absoluteScale;
@@ -220,6 +224,12 @@ export class BoardItemJSON {
 		angle = angle * Math.PI / 180;
 		const x = Math.cos(angle) * (point[0] - center[0]) - Math.sin(angle) * (point[1] - center[1]) + center[0];
 		const y = Math.sin(angle) * (point[0] - center[0]) + Math.cos(angle) * (point[1] - center[1]) + center[1];
+		return [x, y];
+	}
+	// NOTE: everything here is in form [x, y]
+	scalePoint(point, center, scale) {
+		const x = (point[0] - center[0]) * scale[0] + center[0];
+		const y = (point[1] - center[1]) * scale[1] + center[1];
 		return [x, y];
 	}
 	polygonArea (points) {

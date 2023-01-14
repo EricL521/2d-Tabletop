@@ -3,7 +3,7 @@ import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } 
 import Moveable from "vue3-moveable";
 
 const emit = defineEmits(['updateSelection', 'updateIntersection', 'finishMove', 'finishScale', 'finishRotate']);
-const props = defineProps(['parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'position',
+const props = defineProps(['updater', 'parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'position',
 							'size', 'scale', 'rotation', 'type', 'data', 'children', 'isChild']);
 const key = getCurrentInstance().vnode.key;
 const isSelected = ref(props.selectedItem && props.selectedItem.key === key);
@@ -88,6 +88,7 @@ watch(isSelected, () => {
 		cursorType.value = "pointer";
 });
 
+// start of interacting managing
 const updateSelection = (e, key) => {
 	// event is cancelled in gamescren
 	emit('updateSelection', e, key);
@@ -117,7 +118,7 @@ const dragStart = ({set, inputEvent}) => {
 
 	cursorType.value = "grabbing";
 	dragging.value = true;
-	// NOTE: There is no need to getCeneteredPos, because drag also does not use getCenteredPos
+	// NOTE: There is no need to getCenteredPos, because drag also does not use getCenteredPos
 	set(localPos.value);
 };
 const scaleStart = (e) => {
@@ -141,6 +142,8 @@ const drag = ({beforeTranslate}) => {
 
 	// NOTE: There is no need to getCeneteredPos, because drag also does not use getCenteredPos
 	localPos.value = beforeTranslate.slice(0, 2);
+	if (snap.value) // round to dragSnap
+		localPos.value = localPos.value.map((x) => Math.round(x / dragSnap) * dragSnap);
 	props.thisItem.moveTo(localPos.value);
 	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
 };
@@ -149,6 +152,8 @@ const scale = (e) => {
 	if (!isSelected.value) return;
  
 	localScale.value = e.scale;
+	if (snap.value) // round to scaleSnap
+		localScale.value = localScale.value.map((x) => Math.round(x / scaleSnap) * scaleSnap);
 	props.thisItem.scaleTo(localScale.value);
 	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
 	drag(e.drag);
@@ -157,6 +162,8 @@ const rotate = ({beforeRotate}) => {
 	if (!isSelected.value) return;
 
 	localRotation.value = beforeRotate % 360;
+	if (snap.value) // round to rotateSnap
+		localRotation.value = Math.round(localRotation.value / rotateSnap) * rotateSnap;
 	props.thisItem.rotateTo(localRotation.value);
 	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
 };
@@ -185,14 +192,35 @@ const rotateEnd = () => {
 	finishRotate(key, localRotation.value);
 };
 
+// snap values
+const dragSnap = 5;
+const scaleSnap = 0.25;
+const rotateSnap = 15;
+// detect if shift key is pressed
+const snap = ref(false);
+const keyDown = (e) => {if (e.key === "Shift") snap.value = true;};
+const keyUp = (e) => {if (e.key === "Shift") snap.value = false;};
+document.addEventListener('keydown', keyDown);
+document.addEventListener('keyup', keyUp);
+
 const boardItem = ref(null);
 const moveable = ref(null);
 // move moveable to parent
 onMounted(() => {
-	props.parentElement.appendChild(moveable.value);
+	if (props.parentElement)
+		return props.parentElement.appendChild(moveable.value);
+	const unwatch = watch(() => props.parentElement, (parent) => {
+		if (parent) {
+			parent.appendChild(moveable.value);
+			unwatch();
+		}
+	});
 });
 onBeforeUnmount(() => {
-	props.parentElement.removeChild(moveable.value);
+	document.removeEventListener('keydown', keyDown);
+	document.removeEventListener('keyup', keyUp);
+	if (props.parentElement)
+		props.parentElement.removeChild(moveable.value);
 });
 </script>
 
@@ -204,7 +232,7 @@ onBeforeUnmount(() => {
 		@click="(e) => updateSelection(e, key)">
 		<div id="children">
 			<!-- IF SOMETHING IS WORKING FOR THE PARENT, BUT NOT THE CHILDREN THE PROBLEM IS HERE -->
-			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item" 
+			<BoardItem v-for="item in props.children" :key="item.key" :thisItem="item" :updater="props.updater"
 			@updateSelection="updateSelection" :selectedItem="props.selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="props.parentingItem"
 			
@@ -228,6 +256,9 @@ onBeforeUnmount(() => {
 		<Moveable
 			className="moveable"
 			:target="boardItem" :container="props.parentElement" :origin="false"
+			:keepRatio="snap" :throttle-drag="snap? dragSnap: 0"
+			:throttle-rotate="snap? rotateSnap: 0" :throttle-scale="snap? scaleSnap: 0"
+			
 			:draggable="true" :scalable="true" :rotatable="true" :pinchable="true"
 			@drag="drag" @scale="scale" @rotate="rotate" 
 			@drag-start="dragStart" @scale-start="scaleStart" @rotate-start="rotateStart"
@@ -257,7 +288,7 @@ onBeforeUnmount(() => {
 	z-index: 1000000;
 	overflow: visible;
 
-	pointer-events: none;
+	pointer-events: all;
 
 	transition: opacity 0.5s ease;
 	opacity: 1;
@@ -265,11 +296,6 @@ onBeforeUnmount(() => {
 #moveable-wrapper.hidden {
 	opacity: 0;
 	pointer-events: none;
-}
-.moveable {
-	width: 0px !important;
-	height: 0px !important;
-	pointer-events: all !important;
 }
 
 .board-item {
@@ -325,6 +351,6 @@ onBeforeUnmount(() => {
 }
 
 img {
-	image-rendering: auto;
+	image-rendering: crisp-edges;
 }
 </style>

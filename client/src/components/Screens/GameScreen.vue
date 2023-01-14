@@ -1,10 +1,11 @@
 <script setup>
-import { computed, onMounted, ref, toRaw } from 'vue';
+import { computed, onMounted, onUnmounted, ref, toRaw } from 'vue';
 import BoardItem from '../BoardItem.vue';
 const props = defineProps(['data']);
 const emit = defineEmits(['updateHeader', 'changeScreen', 'updateData']);
 // eslint-disable-next-line vue/no-setup-props-destructure
-const board = toRaw(props.data.board);
+const board = props.data.board;
+window.board = toRaw(board);
 console.log(`${board.name} - ${board.id}`);
 emit('updateHeader', true, `${board.name} - ${board.id}`);
 
@@ -14,11 +15,10 @@ const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
 const updater = ref(0);
 const items = computed(() => {
 	updater.value; // force update when updater changes
-	console.log("updated");
 	return board.boardItems;
 });
 board.onAny(() => {
-	updater.value++;
+	updater.value ++;
 });
 
 const selectedItem = ref(null);
@@ -68,15 +68,13 @@ const addItem = (position, size, type, data, parent) => {
 const uploadData = (e) => {
 	cancelEvent(e);
 	
-	const fileReader = new FileReader();
-	console.log(e);
-	console.log(e.dataTransfer.getData("text"));
-	for (const item of e.dataTransfer.items) {
-		const file = item.getAsFile();
-		console.log(file);
+	console.log(e.dataTransfer);
+	for (const file of e.dataTransfer.files) {
+		const fileReader = new FileReader();
+		
 		fileReader.readAsDataURL(file);
 		fileReader.onload = async (file) => {
-			const res  = file.target.result;
+			const res = file.target.result;
 			const img = await resizeImg(100000, res);
 			addItem([e.clientX, e.clientY, 0], [img.width, img.height], "img", {dataURL: img.toDataURL()});
 		};
@@ -117,8 +115,14 @@ onMounted(() => {
 	document.addEventListener("dragover", cancelEvent);
 	document.addEventListener("drag", cancelEvent);
 });
+onUnmounted(() => {
+	document.removeEventListener("drop", uploadData);
+	document.removeEventListener("dragover", cancelEvent);
+	document.removeEventListener("drag", cancelEvent);
+});
 
-const moveableContainer = ref(null);
+// use document.getlemenetbyid in case it already is mounted
+const moveableContainer = ref(document.getElementById("moveable-container"));
 </script>
 
 <template>
@@ -128,7 +132,7 @@ const moveableContainer = ref(null);
 		</div> -->
 		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
 			<!-- For nonchildren only -->
-			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item"
+			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item" :updater="updater"
 			@updateSelection="updateSelection" :selectedItem="selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
