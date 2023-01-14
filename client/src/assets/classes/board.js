@@ -143,7 +143,7 @@ export class Board {
 	scaleItem(key, scale) {
 		const item = this.getItem(key);
 		item.scaleTo(scale);
-		this.emit("itemResize", key);
+		this.emit("itemScale", key);
 	}
 	rotateItem(key, angle) {
 		const item = this.getItem(key);
@@ -151,19 +151,25 @@ export class Board {
 		this.emit("itemRotate", key);
 	}
 	// sets the parent item of childkey to parentkey
-	parentItem(child, parent) {
+	// put extra args into unparentItem too, for child classes
+	parentItem(childKey, parentKey, ...args) {
+		const child = this.getItem(childKey);
+		const parent = this.getItem(parentKey);
+
 		if (!parent)
-			return this.unparentItem(child); // no parent
+			return this.unparentItem(childKey, ...args); // no parent
 		else if (child.isChild)
-			this.unparentItem(child); // unparent child
+			this.unparentItem(childKey, ...args); // unparent child
 
 		this.boardItems.delete(child.key);
 		parent.addChild(child);
 
-		this.emit("itemParent", child.key, parent.key);
+		this.emit("itemParent", childKey, parentKey);
 	}
-	unparentItem(child) {
-		if (child.removeParent()) {
+	unparentItem(childKey) {
+		const child = this.getItem(childKey);
+
+		if (child && child.removeParent()) {
 			this.boardItems.set(child.key, child);
 
 			this.emit("itemUnparent", child.key);

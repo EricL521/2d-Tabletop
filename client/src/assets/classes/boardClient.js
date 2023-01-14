@@ -32,13 +32,15 @@ export class BoardClient extends Board {
 			delete this.connCheck; // no longer needed
 
 			if (!isRetry) {
-				conn.close();
+				if (conn)
+					conn.close();
 				// try again
 				this.connect(true);
 				this.emit("connUpdate", "Connection Failed. Trying again");
 			}
 			else {
-				conn.close();
+				if (conn)
+					conn.close();
 				this.emit("connUpdate", "Rerouting through server");
 				// route through server
 				this.socket.on("routeOpen", this.onSocketConnection.bind(this));
@@ -80,8 +82,13 @@ export class BoardClient extends Board {
 		if (!foreign)
 			this.sendToHost('scaleItem', key, scale);
 	}
+	rotateItem (key, rotation, foreign) {
+		super.rotateItem(key, rotation);
+		if (!foreign)
+			this.sendToHost('rotateItem', key, rotation);
+	}
 	parentItem (childKey, parentKey, foreign) {
-		super.parentItem(childKey, parentKey);
+		super.parentItem(childKey, parentKey, true);
 		if (!foreign)
 			this.sendToHost('parentItem', childKey, parentKey);
 	}
@@ -115,7 +122,10 @@ connectionEvents.on('moveItem', function(conn, key, position) {
 	this.moveItem(key, position, true);
 });
 connectionEvents.on('scaleItem', function(conn, key, scale) {
-	this.resizeItem(key, scale, true);
+	this.scaleItem(key, scale, true);
+});
+connectionEvents.on('rotateItem', function(conn, key, rotation) {
+	this.rotateItem(key, rotation, true);
 });
 connectionEvents.on('parentItem', function(conn, childKey, parentKey) {
 	this.parentItem(childKey, parentKey, true);

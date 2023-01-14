@@ -37,6 +37,7 @@ export class BoardConn {
 	}
 
 	send(...args) {
+		console.log("sending");
 		if (this.isSocket)
 			return this.conn.emit("routeData", this.boardId, this.receiverSocketId, JSON.stringify(args, replacer));
 		return this.conn.send(JSON.stringify(args, replacer));

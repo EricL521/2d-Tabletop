@@ -45,11 +45,12 @@ const onIntersect = (itemKey, areaPercent) => {
 
 // store a local copy of each of the transforms, so that we can update some of them without updating others
 const localPos = ref(props.position);
-watch(() => props.location, (newPosition) => {if (!dragging.value) localPos.value = newPosition;});
+watch(() => props.position, (newPosition) => {if (!dragging.value) localPos.value = newPosition;});
 const localScale = ref(props.scale); 
 watch(() => props.scale, (newScale) => {if (!scaling.value) localScale.value = newScale;});
 const localRotation = ref(props.rotation);
 watch(() => props.rotation, (newRotation) => {if (!rotating.value) localRotation.value = newRotation;});
+
 const zStyle = computed(() => {
 	return {
 		zIndex: props.z
@@ -165,14 +166,14 @@ const dragEnd = () => {
 
 	end();
 	cursorType.value = "grab";
-	finishDrag(key, ...localPos.value);
+	finishDrag(key, localPos.value);
 };
 const scaleEnd = () => {
 	if (!isSelected.value) return;
 
 	end();
-	dragEnd();
 	finishScale(key, localScale.value);
+	dragEnd();
 };
 const rotateEnd = () => {
 	if (!isSelected.value) return;

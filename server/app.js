@@ -1,15 +1,15 @@
-// peerjs server
-const { PeerServer } = require('peer');
-const peerServer = PeerServer({ port: 9000, path: '/peerjs' });
-peerServer.on('connection', (client) => { console.log("peerjs connection"); });
-peerServer.on('disconnect', (client) => { console.log("peerjs disconnect"); });
-
 const express = require('express');
 const path = require('path');
 const app = express();
 const port = 3000;
 const http = require('http');
 const server = http.createServer(app);
+
+// peerjs server
+const { PeerServer } = require('peer');
+const peerServer = PeerServer({port: 9000, path: '/peerjs'});
+peerServer.on('connection', () => console.log("peerjs connection"));
+peerServer.on('disconnect', () => console.log("peerjs disconnect"));
 
 const { Server } = require("socket.io");
 const fs = require('fs');

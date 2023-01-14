@@ -6,13 +6,11 @@ import './assets/main.css'
 
 import './assets/peerjs.min.js'
 // create global peerjs object (in vuejs)
-const peer = new Peer(null, {
-	config: { // i wrote my own rerouting so im gonna use it
-		iceServers: []
-	},
-	host: '/',
+const peer = new Peer(null, {	
+	host: 'localhost',
+	port: 9000,
+	secure: false, // this is what fixed it!
 	path: '/peerjs',
-	port: 9000 // firefox takes a LONG time to connect for some reason, but it still does :)
 });
 peer.on('open', () => {
 	console.log("open");

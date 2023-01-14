@@ -26,11 +26,13 @@ const selectedItem = ref(null);
 board.on("itemSelect", (key, item) => {
 	setTimeout(() => selectedItem.value = item, 0);
 });
+// this is where parenting is done
 const updateSelection = (e, key) => {
 	cancelEvent(e);
 	// if deselecting and parenting, then parent
 	if (selectedItem.value && selectedItem.value.key != key) {
-		board.parentItem(selectedItem.value, parentingItem.value);
+		if (selectedItem.value.parent != parentingItem.value?.key)
+			board.parentItem(selectedItem.value.key, parentingItem.value?.key);
 		parentingItem.value = null;
 		parentingArea.value = 0;
 	}

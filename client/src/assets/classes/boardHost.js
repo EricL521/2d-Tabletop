@@ -38,10 +38,14 @@ export class BoardHost extends Board {
 	}
 	scaleItem (key, scale, playerConn) {
 		super.scaleItem(key, scale);
-		this.updatePlayers(playerConn, 'resizeItem', key, scale);
+		this.updatePlayers(playerConn, 'scaleItem', key, scale);
+	}
+	rotateItem (key, rotation, playerConn) {
+		super.rotateItem(key, rotation);
+		this.updatePlayers(playerConn, 'rotateItem', key, rotation);
 	}
 	parentItem (childKey, parentKey, playerConn) {
-		super.parentItem(childKey, parentKey);
+		super.parentItem(childKey, parentKey, playerConn);
 		this.updatePlayers(playerConn, 'parentItem', childKey, parentKey);
 	}
 	unparentItem (childKey, playerConn) {
@@ -77,7 +81,10 @@ connectionEvents.on('moveItem', function(conn, key, position) {
 	this.moveItem(key, position, conn);
 });
 connectionEvents.on('scaleItem', function(conn, key, scale) {
-	this.resizeItem(key, scale, conn);
+	this.scaleItem(key, scale, conn);
+});
+connectionEvents.on('rotateItem', function(conn, key, rotation) {
+	this.rotateItem(key, rotation, conn);
 });
 connectionEvents.on('parentItem', function(conn, childKey, parentKey) {
 	this.parentItem(childKey, parentKey, conn);
