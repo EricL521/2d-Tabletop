@@ -1,11 +1,10 @@
 <script setup>
-import { computed, getCurrentInstance, ref, watch } from 'vue';
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Moveable from "vue3-moveable";
 
 const emit = defineEmits(['updateSelection', 'updateIntersection', 'finishMove', 'finishScale', 'finishRotate']);
 const props = defineProps(['parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'position',
-							'size', 'scale', 'rotation', 'type', 'data', 'children', 'isChild',
-							'parentPosition', 'parentScale', 'parentRotation']); // these are used to cancel out parent transforms
+							'size', 'scale', 'rotation', 'type', 'data', 'children', 'isChild']);
 const key = getCurrentInstance().vnode.key;
 const isSelected = ref(props.selectedItem && props.selectedItem.key === key);
 // if child is selected, move parent to top
@@ -43,6 +42,8 @@ const onIntersect = (itemKey, areaPercent) => {
 	emit('updateIntersection', itemKey, areaPercent);
 };
 
+const cancelEvent = (e) => {e.preventDefault(); e.stopPropagation();};
+
 // store a local copy of each of the transforms, so that we can update some of them without updating others
 const localPos = ref(props.position);
 watch(() => props.position, (newPosition) => {if (!dragging.value) localPos.value = newPosition;});
@@ -73,19 +74,14 @@ const getTransform = (position, rotation, scale) => {
 		'rotate(' + rotation + 'deg)' + ' ' +
 		'scale(' + scale[0] + ', ' + scale[1] + ')';
 };
-const reverseParentTransform = computed(() => {
-	if (!props.isChild)
-		return {};
-	return {
-		transform: 'scale(' + (1/props.parentScale[0]) + ', ' + (1/props.parentScale[1]) + ')' +
-			'rotate(' + -props.parentRotation + 'deg)' + ' ' +
-			'translate(' + -props.parentPosition[0] + 'px, ' + -props.parentPosition[1] + 'px' + ')'
-	};
-});
 
 const cursorType = ref("pointer");
 const cursorStyle = computed(() => {return {cursor: cursorType.value}});
 watch(isSelected, () => {
+	// if grabbing, don't change cursor
+	if (cursorType.value === "grabbing")
+		return;
+	
 	if (isSelected.value)
 		cursorType.value = "grab";
 	else
@@ -109,8 +105,15 @@ const finishRotate = (itemKey, rotation) => {
 // storing whether the item is being dragged, resized, or rotated, so it won't update if someone else is doing it
 const moving = computed(() => dragging.value || scaling.value || rotating.value);
 const dragging = ref(false); const scaling = ref(false); const rotating = ref(false);
-const dragStart = ({set}) => {
-	if (!isSelected.value) return;
+// dragging should select element
+const dragStart = ({set, inputEvent}) => {
+	cancelEvent(inputEvent);
+	// if there is no item selected, then this item should be selected when dragging
+	if (!isSelected.value) {
+		// update transition
+		boardItem.value.classList.add("no-transition");
+		updateSelection(inputEvent, key);
+	}
 
 	cursorType.value = "grabbing";
 	dragging.value = true;
@@ -183,6 +186,14 @@ const rotateEnd = () => {
 };
 
 const boardItem = ref(null);
+const moveable = ref(null);
+// move moveable to parent
+onMounted(() => {
+	props.parentElement.appendChild(moveable.value);
+});
+onBeforeUnmount(() => {
+	props.parentElement.removeChild(moveable.value);
+});
 </script>
 
 <template>
@@ -204,9 +215,7 @@ const boardItem = ref(null);
 			:type="item.type" :data="item.data"
 			:children="item.children" :isChild="true" 
 			
-			:parentElement="props.parentElement"
-			:parent-position="getCenteredPos(localPos, props.size)" :parent-scale="localScale" :parent-rotation="localRotation">
-			</BoardItem>
+			:parentElement="props.parentElement"/>
 		</div>
 		
 		<div id="content">
@@ -215,7 +224,7 @@ const boardItem = ref(null);
 		</div>
 	</div>
 
-	<div id="moveable-wrapper" :class="{hidden: !isSelected}" :style="reverseParentTransform">
+	<div ref="moveable" id="moveable-wrapper" :class="{hidden: !isSelected}">
 		<Moveable
 			className="moveable"
 			:target="boardItem" :container="props.parentElement" :origin="false"
@@ -243,8 +252,8 @@ const boardItem = ref(null);
 	position: absolute;
 	left: 0;
 	top: 0;
-	width: 100%;
-	height: 100%;
+	width: 0;
+	height: 0;
 	z-index: 1000000;
 	overflow: visible;
 
@@ -269,6 +278,9 @@ const boardItem = ref(null);
 	pointer-events: all;
 	left: 0;
 	top: 0;
+}
+.board-item.no-transition {
+	transition: opacity 0.5s ease !important;
 }
 .board-item.child {
 	transition: inherit;

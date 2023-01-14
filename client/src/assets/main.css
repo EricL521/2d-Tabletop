@@ -20,7 +20,7 @@
 }
 
 .no-transition {
-	transition: none !important;
+	transition: none;
 }
 
 .up-down-flex {

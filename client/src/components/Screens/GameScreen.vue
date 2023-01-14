@@ -17,7 +17,6 @@ const items = computed(() => {
 	console.log("updated");
 	return board.boardItems;
 });
-window.items = board.boardItems;
 board.onAny(() => {
 	updater.value++;
 });
@@ -28,7 +27,8 @@ board.on("itemSelect", (key, item) => {
 });
 // this is where parenting is done
 const updateSelection = (e, key) => {
-	cancelEvent(e);
+	if (e)
+		cancelEvent(e);
 	// if deselecting and parenting, then parent
 	if (selectedItem.value && selectedItem.value.key != key) {
 		if (selectedItem.value.parent != parentingItem.value?.key)
@@ -70,12 +70,17 @@ const uploadData = (e) => {
 	
 	const fileReader = new FileReader();
 	console.log(e);
-	fileReader.readAsDataURL(e.dataTransfer.files[0]);
-	fileReader.onload = async (file) => {
-		const res  = file.target.result;
-		const img = await resizeImg(100000, res);
-		addItem([e.clientX, e.clientY, 0], [img.width, img.height], "img", {dataURL: img.toDataURL()});
-	};
+	console.log(e.dataTransfer.getData("text"));
+	for (const item of e.dataTransfer.items) {
+		const file = item.getAsFile();
+		console.log(file);
+		fileReader.readAsDataURL(file);
+		fileReader.onload = async (file) => {
+			const res  = file.target.result;
+			const img = await resizeImg(100000, res);
+			addItem([e.clientX, e.clientY, 0], [img.width, img.height], "img", {dataURL: img.toDataURL()});
+		};
+	}
 };
 // returns canvas with the image on it
 // NOTE: does not upsize image if it's smaller than pixels
@@ -113,7 +118,7 @@ onMounted(() => {
 	document.addEventListener("drag", cancelEvent);
 });
 
-const boardItemContainer = ref(null);
+const moveableContainer = ref(null);
 </script>
 
 <template>
@@ -121,9 +126,9 @@ const boardItemContainer = ref(null);
 		<!-- <div id="tool-bar">
 			<img src="../../assets/icons/Paint_Brush.svg">
 		</div> -->
-		<div ref="boardItemContainer" id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
+		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
 			<!-- For nonchildren only -->
-			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item" :parentElement="boardItemContainer"
+			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item"
 			@updateSelection="updateSelection" :selectedItem="selectedItem"
 			@updateIntersection="onIntersect" :parentingItem="parentingItem"
 			
@@ -132,9 +137,11 @@ const boardItemContainer = ref(null);
 			:rotation="item.rotation" @finishRotate="(key, rotation) => board.rotateItem(key, rotation)" 
 
 			:type="item.type" :data="item.data"
-			:children="item.children">
-			</BoardItem>
+			:children="item.children"
+
+			:parentElement="moveableContainer"/>
 		</div>
+		<div ref="moveableContainer" id="moveable-container"></div>
 	</div>
 </template>
 
@@ -143,6 +150,15 @@ const boardItemContainer = ref(null);
 	width: 100%;
 	height: 100%;
 	user-select: none;
+}
+#moveable-container {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	pointer-events: all;
+	z-index: 1000000;
 }
 #board-item-container.pointer {
 	cursor: pointer;
@@ -162,10 +178,5 @@ const boardItemContainer = ref(null);
 #tool-bar img {
 	width: 5em;
 	height: auto;
-}
-
-.highlight {
-	border-color: #7280AC;
-	background-color: #B2B9D2;
 }
 </style>

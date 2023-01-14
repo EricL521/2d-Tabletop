@@ -39,6 +39,10 @@ export class Board {
 		// name: [callback, callback, ...]
 	}
 
+	get allItems() {
+		return BoardItemJSON.items;
+	}
+
 	// peer.onconnection equals this
 	// however, it is called differently in host and client
 	onConnection(conn) {
@@ -155,6 +159,8 @@ export class Board {
 	parentItem(childKey, parentKey, ...args) {
 		const child = this.getItem(childKey);
 		const parent = this.getItem(parentKey);
+		if (!child)
+			return; // no child
 
 		if (!parent)
 			return this.unparentItem(childKey, ...args); // no parent

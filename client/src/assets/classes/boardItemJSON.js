@@ -288,10 +288,12 @@ export class BoardItemJSON {
 		return true;
 	}
 	setParent(parent, update) {
-		if (parent && parent.parent && parent.parent.key == this.key)
+		if (parent?.parent?.key == this.key)
 			return false; // can't reverse parenting direction
-		if (this && this.parent && this.parent.key == parent.key)
+		if (this.parent == parent)
 			return false; // don't set if already parent
+		if (parent?.key == this.key)
+			return false; // can't be parent of self
 		
 		if (this.parent == parent)
 			return false;

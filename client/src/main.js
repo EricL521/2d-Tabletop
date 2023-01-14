@@ -13,7 +13,7 @@ const peer = new Peer(null, {
 	path: '/peerjs',
 });
 peer.on('open', () => {
-	console.log("open");
+	console.log("peerjs connected");
 });
 peer.on('error', (err) => {
 	console.error(err);
