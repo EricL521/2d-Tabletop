@@ -11,17 +11,20 @@ export default defineConfig({
 //       '@': fileURLToPath(new URL('./src', import.meta.url))
 //     }
 //   },
-  server: {
-    proxy: {
-		'/api': {
-			target: 'http://localhost:3000',
-			changeOrigin: true,
-			rewrite: (path) => path.replace(/^\/api/, '') // some regex thing that removes the /api from the path
-		},
-		'/peerjs': {
-			target: 'http://localhost:9000',
-			changeOrigin: true,
+	server: {
+		proxy: {
+			'/api': {
+				target: 'http://localhost:3000',
+				changeOrigin: true,
+				rewrite: (path) => path.replace(/^\/api/, '') // some regex thing that removes the /api from the path
+			},
+			'/peerjs': {
+				target: 'http://localhost:9000',
+				changeOrigin: true,
+			}
 		}
-    }
-  }
-})
+	},
+	hmr: {
+		port: 443,
+	}
+});

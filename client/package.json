@@ -8,9 +8,9 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
   },
   "dependencies": {
+    "moveable": "^0.42.2",
     "polygon-clipping": "^0.15.3",
-    "vue": "^3.2.38",
-    "vue3-moveable": "^0.17.1"
+    "vue": "^3.2.38"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^3.0.3",

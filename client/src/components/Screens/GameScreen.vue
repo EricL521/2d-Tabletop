@@ -21,9 +21,88 @@ board.onAny(() => {
 	updater.value ++;
 });
 
+const globalPosition = ref([0, 0]);
+const globalPosStyle = computed(() => {
+	return {
+		left: `${globalPosition.value[0]}px`,
+		top: `${globalPosition.value[1]}px`,
+	};
+});
+let startingMousePos = [0, 0];
+let dragging = false;
+const mouseDown = (e) => {
+	if (selectedItem.value)
+		return;
+
+	cancelEvent(e);
+	dragging = true;
+	backgroundCursor.value = "grabbing";
+	startingMousePos = [e.clientX, e.clientY];
+};
+const mouseMove = (e) => {
+	if (!dragging) return;
+	if (selectedItem.value)
+		return;
+
+	cancelEvent(e);
+	// unselect
+	updateSelection(null, null);
+	globalPosition.value = [
+		globalPosition.value[0] + e.clientX - startingMousePos[0],
+		globalPosition.value[1] + e.clientY - startingMousePos[1],
+	];
+	startingMousePos = [e.clientX, e.clientY];
+};
+const mouseUp = (e) => {
+	if (selectedItem.value)
+		return;
+	
+	cancelEvent(e);
+	dragging = false;
+	backgroundCursor.value = "grab";
+};
+const globalScale = ref(1);
+const globalScaleStyle = computed(() => {
+	return {
+		transform: `scale(${globalScale.value})`,
+	};
+});
+const zoom = (e) => {
+	cancelEvent(e);
+	if (selectedItem.value) return;
+
+	const delta = e.deltaY;
+	let deltaScale = 0;
+	if (delta > 0)
+		deltaScale = 1/1.1;
+	else
+		deltaScale = 1.1;
+	
+	globalScale.value *= deltaScale;
+	// scale globalPos
+	globalPosition.value = scalePoint(globalPosition.value, [e.clientX, e.clientY], deltaScale);
+};
+// everything is [x, y], except scale, hwich is a number
+const scalePoint = (point, center, scale) => {
+	const x = (point[0] - center[0]) * scale + center[0];
+	const y = (point[1] - center[1]) * scale + center[1];
+	return [x, y];
+};
+
+const backgroundCursor = ref("grab");
+const cursorStyle = computed(() => {return {
+		cursor: backgroundCursor.value,
+}});
+
 const selectedItem = ref(null);
 board.on("itemSelect", (key, item) => {
-	setTimeout(() => selectedItem.value = item, 0);
+	setTimeout(() => {
+		selectedItem.value = item;
+		if (selectedItem.value)
+			backgroundCursor.value = "pointer";
+		else
+			backgroundCursor.value = "grab";
+	}, 0);
 });
 // this is where parenting is done
 const updateSelection = (e, key) => {
@@ -64,11 +143,9 @@ const addItem = (position, size, type, data, parent) => {
 		parent: parent? parent: null
 	});
 };
-
 const uploadData = (e) => {
 	cancelEvent(e);
 	
-	console.log(e.dataTransfer);
 	for (const file of e.dataTransfer.files) {
 		const fileReader = new FileReader();
 		
@@ -76,7 +153,9 @@ const uploadData = (e) => {
 		fileReader.onload = async (file) => {
 			const res = file.target.result;
 			const img = await resizeImg(100000, res);
-			addItem([e.clientX, e.clientY, 0], [img.width, img.height], "img", {dataURL: img.toDataURL()});
+			const offsetPos = [e.clientX - globalPosition.value[0], e.clientY - globalPosition.value[1]];
+			const scaledPos = scalePoint(offsetPos, [0, 0], 1/globalScale.value);
+			addItem([scaledPos[0], scaledPos[1], 0], [img.width, img.height], "img", {dataURL: img.toDataURL()});
 		};
 	}
 };
@@ -109,16 +188,19 @@ const resizeImg = async (pixels, dataURL) => {
 		};
 	});
 };
-
 onMounted(() => {
 	document.addEventListener("drop", uploadData);
 	document.addEventListener("dragover", cancelEvent);
 	document.addEventListener("drag", cancelEvent);
+	
+	document.addEventListener("wheel", zoom);
 });
 onUnmounted(() => {
 	document.removeEventListener("drop", uploadData);
 	document.removeEventListener("dragover", cancelEvent);
 	document.removeEventListener("drag", cancelEvent);
+
+	document.removeEventListener("wheel", zoom);
 });
 
 // use document.getlemenetbyid in case it already is mounted
@@ -130,7 +212,9 @@ const moveableContainer = ref(document.getElementById("moveable-container"));
 		<!-- <div id="tool-bar">
 			<img src="../../assets/icons/Paint_Brush.svg">
 		</div> -->
-		<div id="board-item-container" :class="{pointer: selectedItem}" @click="(e) => {updateSelection(e);}">
+		<div id="background" :style="cursorStyle" @click="updateSelection" 
+		@mousedown="mouseDown" @mousemove="mouseMove" @mouseup="mouseUp" @mouseleave="mouseUp"></div>
+		<div id="board-item-container" :style="[globalPosStyle, globalScaleStyle]">
 			<!-- For nonchildren only -->
 			<BoardItem v-for="[key, item] in items" :key="key" :thisItem="item" :updater="updater"
 			@updateSelection="updateSelection" :selectedItem="selectedItem"
@@ -150,10 +234,16 @@ const moveableContainer = ref(document.getElementById("moveable-container"));
 </template>
 
 <style scoped>
-#game-screen, #board-item-container {
+#game-screen, #background {
+	position: absolute;
 	width: 100%;
 	height: 100%;
 	user-select: none;
+}
+
+#board-item-container {
+	position: absolute;
+	overflow: visible;
 }
 #moveable-container {
 	position: absolute;
@@ -163,9 +253,6 @@ const moveableContainer = ref(document.getElementById("moveable-container"));
 	height: 0;
 	pointer-events: all;
 	z-index: 1000000;
-}
-#board-item-container.pointer {
-	cursor: pointer;
 }
 
 #tool-bar {

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import Moveable from "vue3-moveable";
+import Moveable from "moveable";
 
 const emit = defineEmits(['updateSelection', 'updateIntersection', 'finishMove', 'finishScale', 'finishRotate']);
 const props = defineProps(['updater', 'parentElement', 'selectedItem', 'parentingItem', 'thisItem', 'position',
@@ -54,7 +54,6 @@ watch(() => props.rotation, (newRotation) => {if (!rotating.value) localRotation
 
 const zStyle = computed(() => {
 	return {
-		zIndex: props.z
 	};
 });
 // returns the position of the lement after centering it
@@ -168,26 +167,24 @@ const rotate = ({beforeRotate}) => {
 	boardItem.value.style.transform = getTransform(localPos.value, localRotation.value, localScale.value);
 };
 
+// resets the dragging, scaling, rotating
 const end = () => {
 	[dragging, scaling, rotating].forEach(ref => ref.value = false);
 };
 const dragEnd = () => {
-	if (!isSelected.value) return;
-
+	if (!dragging.value) return;
 	end();
 	cursorType.value = "grab";
 	finishDrag(key, localPos.value);
 };
 const scaleEnd = () => {
-	if (!isSelected.value) return;
-
+	if (!scaling.value) return;
 	end();
 	finishScale(key, localScale.value);
 	dragEnd();
 };
 const rotateEnd = () => {
-	if (!isSelected.value) return;
-
+	if (!rotating.value) return;
 	end();
 	finishRotate(key, localRotation.value);
 };
@@ -202,25 +199,65 @@ const keyDown = (e) => {if (e.key === "Shift") snap.value = true;};
 const keyUp = (e) => {if (e.key === "Shift") snap.value = false;};
 document.addEventListener('keydown', keyDown);
 document.addEventListener('keyup', keyUp);
+watch(snap, (snap) => {
+	if (!moveable) return;
+	if (snap) {
+		moveable.keepRatio = true;
+		moveable.throttleDrag = dragSnap;
+		moveable.throttleScale = scaleSnap;
+		moveable.throttleRotate = rotateSnap;
+	}
+	else {
+		moveable.keepRatio = false;
+		moveable.throttleDrag = 0;
+		moveable.throttleScale = 0;
+		moveable.throttleRotate = 0;
+	}
+});
 
 const boardItem = ref(null);
-const moveable = ref(null);
-// move moveable to parent
+let moveable = null;
+let moveableElement = null;
 onMounted(() => {
-	if (props.parentElement)
-		return props.parentElement.appendChild(moveable.value);
-	const unwatch = watch(() => props.parentElement, (parent) => {
-		if (parent) {
-			parent.appendChild(moveable.value);
+	new Promise((res) => {
+		const moveableSettings = {
+			className: `moveable${key}`,
+			target: boardItem.value,
+			container: props.parentElement,
+			draggable: true, scalable: true, rotatable: true, pinchable: true,
+			origin: false
+		};
+		
+		if (props.parentElement)
+			return res(new Moveable(props.parentElement, moveableSettings));
+		const unwatch = watch(() => props.parentElement, (parent) => {
 			unwatch();
-		}
+			return res(new Moveable(parent, moveableSettings));
+		});
+	}).then((m) => {
+		moveable = m;
+		moveableElement = document.querySelector(`.moveable${key}`);
+		moveableElement.style.transition = "opacity 0.5s ease";
+
+		m.on("dragStart", dragStart).on("drag", drag).on("dragEnd", dragEnd);
+		m.on("scaleStart", scaleStart).on("scale", scale).on("scaleEnd", scaleEnd);
+		m.on("rotateStart", rotateStart).on("rotate", rotate).on("rotateEnd", rotateEnd);
+		window.m = m;
 	});
 });
+watch(isSelected, (isSelected) => {
+	if (!moveableElement)
+		return;
+	
+	moveableElement.style.opacity = isSelected ? 1 : 0;
+	moveableElement.style.pointerEvents = isSelected ? "all" : "none";
+});
+
 onBeforeUnmount(() => {
 	document.removeEventListener('keydown', keyDown);
 	document.removeEventListener('keyup', keyUp);
-	if (props.parentElement)
-		props.parentElement.removeChild(moveable.value);
+	if (!moveable) return;
+	moveable.destroy();
 });
 </script>
 
@@ -251,20 +288,6 @@ onBeforeUnmount(() => {
 			<p v-else>Backup thing</p>
 		</div>
 	</div>
-
-	<div ref="moveable" id="moveable-wrapper" :class="{hidden: !isSelected}">
-		<Moveable
-			className="moveable"
-			:target="boardItem" :container="props.parentElement" :origin="false"
-			:keepRatio="snap" :throttle-drag="snap? dragSnap: 0"
-			:throttle-rotate="snap? rotateSnap: 0" :throttle-scale="snap? scaleSnap: 0"
-			
-			:draggable="true" :scalable="true" :rotatable="true" :pinchable="true"
-			@drag="drag" @scale="scale" @rotate="rotate" 
-			@drag-start="dragStart" @scale-start="scaleStart" @rotate-start="rotateStart"
-			@drag-end="dragEnd" @scale-end="scaleEnd" @rotate-end="rotateEnd"
-		/>
-	</div>
 </template>
 
 <style scoped>
@@ -278,24 +301,6 @@ onBeforeUnmount(() => {
 	display: block;
 	width: 100%;
 	height: 100%;
-}
-#moveable-wrapper {
-	position: absolute;
-	left: 0;
-	top: 0;
-	width: 0;
-	height: 0;
-	z-index: 1000000;
-	overflow: visible;
-
-	pointer-events: all;
-
-	transition: opacity 0.5s ease;
-	opacity: 1;
-}
-#moveable-wrapper.hidden {
-	opacity: 0;
-	pointer-events: none;
 }
 
 .board-item {
